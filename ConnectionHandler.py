@@ -21,8 +21,9 @@ class ConnectionHandler:
             # Return to the beginning of the line and clear the current text
             sys.stdout.write('\r\033[K') 
             
-            print(f"Réception : {self.message_handler.decode_message(data)}")
+            header, cmd, length, message = self.message_handler.decode_message(data)
             
-            # Redisplay the input prompt for the user
-            sys.stdout.write('Enter your message: ')
+            print(f"[{cmd}] Serveur : {message}")
+            
+            sys.stdout.write('>')
             sys.stdout.flush()
