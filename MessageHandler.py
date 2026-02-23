@@ -31,3 +31,28 @@ class MessageHandler():
     
     def decrypt(self, message):
         return message
+    
+    def encode_shift(self, message, shift):
+        result = ''
+
+        for letter in message:
+            result += chr(ord(letter) + shift)
+        
+        return result
+    
+    def decode_shift(self, message, shift):
+        result = ''
+
+        for letter in message:
+            result += chr(ord(letter) - shift)
+
+        return result
+
+    def xor(self, message, key):
+        result=[]
+
+        for idx in range(len(message)):
+            key_byte = key[idx%len(key)]
+            result.append(message[idx]^key_byte)
+
+        return bytes(result)
