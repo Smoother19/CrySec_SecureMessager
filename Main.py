@@ -14,7 +14,7 @@ parser = cli_parser(connection)
 receive_msg = threading.Thread(target=connection.receive_message)
 receive_msg.start()
 
-print("Chat démarré. Tapez /help pour voir les commandes.")
+print("Connection established. Type /help for a list of commands.")
 
 while True:
     msg = input('>')
