@@ -35,8 +35,39 @@ class MainWindow(QMainWindow):
         #     self.addChatField("wads")
 
 
+        self.servOnly = QCheckBox("Send to serv ONLY")
+
+        sendChat = QHBoxLayout()
+        self.chatText = QTextEdit(placeholderText="Send a message")
+        self.chatText.setMaximumHeight(30)
+        self.btnSend = QPushButton("Send")
+
+        sendChat.addWidget(self.chatText)
+        sendChat.addWidget(self.btnSend)
+
+
+        encodeLayout = QHBoxLayout()
+
+        self.encoding = QComboBox()
+        self.encoding.setMaximumWidth(120)
+
+
+        self.encoding.addItem("Shift")
+        self.encoding.addItem("Vegenere")
+        self.encoding.addItem("RSA")
+        self.encoding.addItem("DiffieHellman")
+        self.encoding.addItem("Hashing")
+
+        
+        encodeLayout.addWidget(self.servOnly)
+        encodeLayout.addWidget(self.encoding)
+        
+        settingsBox.addLayout(encodeLayout)
+
+
         scrollChat.setWidget(scrollContainer)
         chatBox.addWidget(scrollChat)
+        chatBox.addLayout(sendChat)
         
         settingsBox.addWidget(scrollChat)
 
@@ -59,3 +90,4 @@ class MainWindow(QMainWindow):
             label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             label.setStyleSheet("background-color: #C9C9C9; border-radius: 10px; color: black")   
         self.scrollLayout.addWidget(label) 
+    
