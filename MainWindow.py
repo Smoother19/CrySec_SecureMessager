@@ -30,22 +30,23 @@ class MainWindow(QMainWindow):
         scrollContainer.setFixedWidth(scrollChat.width())
         self.scrollLayout = QVBoxLayout(scrollContainer)
 
-        #Example to add chat field to scrollArea
-        # for i in range(1, 200):
-        #     self.addChatField("wads")
-
-
-        self.servOnly = QCheckBox("Send to serv ONLY")
-
+        # Send message to server textbox
         sendChat = QHBoxLayout()
         self.chatText = QTextEdit(placeholderText="Send a message")
         self.chatText.setMaximumHeight(30)
-        self.btnSend = QPushButton("Send")
+        self.btnSend = QPushButton("Send")    
 
         sendChat.addWidget(self.chatText)
         sendChat.addWidget(self.btnSend)
 
+        #Example to add chat field to scrollArea
+        for i in range(1, 200):
+            self.addChatField("wads")
 
+        # Checkbox for Serv only (Task)
+        self.servOnly = QCheckBox("Send to serv ONLY")
+
+        # CHoosing encoding method
         encodeLayout = QHBoxLayout()
 
         self.encoding = QComboBox()
@@ -61,15 +62,30 @@ class MainWindow(QMainWindow):
         
         encodeLayout.addWidget(self.servOnly)
         encodeLayout.addWidget(self.encoding)
-        
-        settingsBox.addLayout(encodeLayout)
 
+        # Key textfield
+        
+        keyLayout = QHBoxLayout()
+
+        keyLabel = QLabel("Key: ")
+        keyLabel.setMaximumWidth(50)
+
+        
+        self.keyText = QTextEdit(placeholderText="Encoding Key")
+        self.keyText.setMaximumHeight(30)
+
+        keyLayout.addWidget(keyLabel)
+        keyLayout.addWidget(self.keyText)
+
+        # Adding layouts and Widgets to parents
 
         scrollChat.setWidget(scrollContainer)
         chatBox.addWidget(scrollChat)
         chatBox.addLayout(sendChat)
         
         settingsBox.addWidget(scrollChat)
+        settingsBox.addLayout(encodeLayout)
+        settingsBox.addLayout(keyLayout)
 
         mainBox.addLayout(chatBox)
         mainBox.addLayout(settingsBox)
@@ -77,6 +93,7 @@ class MainWindow(QMainWindow):
         self.setLayout(mainBox)
     
 
+    # Adds a text/chat display to the UI
     def addChatField(self, chatText: str, isSend: bool=False):
         label = QLabel(chatText)  
         label.setFixedWidth(300)
