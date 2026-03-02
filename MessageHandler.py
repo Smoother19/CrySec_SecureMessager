@@ -22,7 +22,7 @@ class MessageHandler():
         length = unpacked[2]
         message_bytes = unpacked[3]
 
-        message = message_bytes.decode('utf-32-be')
+        message = message_bytes.decode('utf-32-be', errors='replace')
 
         return (header, cmd, length, message)
     
@@ -34,18 +34,16 @@ class MessageHandler():
     
     def encode_shift(self, message, shift):
         result = ''
-
         for letter in message:
-            result += chr(ord(letter) + shift)
-        
+            new_code = (ord(letter) + shift) % 1114112
+            result += chr(new_code)
         return result
     
     def decode_shift(self, message, shift):
         result = ''
-
         for letter in message:
-            result += chr(ord(letter) - shift)
-
+            new_code = (ord(letter) - shift) % 1114112
+            result += chr(new_code)
         return result
 
     def xor(self, message, key):

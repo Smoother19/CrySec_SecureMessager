@@ -15,36 +15,72 @@ class ConnectionHandler:
     def _recvall(self, n):
         data = bytearray()
         while len(data) < n:
-            packet = self.client.recv(n - len(data))
-            if not packet:
+            try:
+                packet = self.client.recv(n - len(data))
+            except OSError:
                 return None
+                
+            if not packet:
+                return bytes(data) if len(data) > 0 else None
+                
             data.extend(packet)
         return bytes(data)
+    
+    def _read_header_sync(self):
+        """
+        Lit le flux réseau octet par octet jusqu'à trouver le marqueur 'ISC'.
+        Cela permet de réparer le flux si le serveur a envoyé des données corrompues.
+        """
+        marker = b'ISC'
+        buffer = bytearray()
+        
+        while True:
+            char = self.client.recv(1)
+            if not char:
+                return None
+                
+            buffer.extend(char)
+            
+            if buffer[-3:] == marker:
+                rest = self._recvall(3)
+                if not rest:
+                    return None
+                return marker + rest
 
     def receive_message(self):
         while True:
-            header_data = self._recvall(6)
-            if not header_data:
-                break
-            
-            length = int.from_bytes(header_data[4:6], 'big')
-            
-            payload_size = length * 4
-            
-            payload_data = b''
-            if payload_size > 0:
-                payload_data = self._recvall(payload_size)
-                if not payload_data:
+            try:
+                header_data = self._read_header_sync()
+                if not header_data:
+                    print("\n[Système] Déconnecté du serveur.")
                     break
-            
-            full_packet = header_data + payload_data
 
-            # Affichage classique
-            sys.stdout.write('\r\033[K') 
-            
-            header, cmd, length, message = self.message_handler.decode_message(full_packet)
-            
-            print(f"[{cmd}] Serveur : {message}")
-            
-            sys.stdout.write('>')
-            sys.stdout.flush()
+                length = int.from_bytes(header_data[4:6], 'big')
+                payload_size = length * 4
+                
+
+                payload_data = b''
+                if payload_size > 0:
+                    payload_data = self._recvall(payload_size)
+                    if payload_data is None: 
+                        break
+                    
+                    safe_length = len(payload_data) - (len(payload_data) % 4)
+                    payload_data = payload_data[:safe_length]
+
+                full_packet = header_data + payload_data
+
+                sys.stdout.write('\r\033[K') 
+                
+                header, cmd, length, message = self.message_handler.decode_message(full_packet)
+                
+                print(f"[{cmd}] Serveur : {message}")
+                # print(f"length : {len(message)} characters")
+                
+            except Exception as e:
+                sys.stdout.write('\r\033[K') 
+                print(f"\n[Erreur de réception] {e}")
+                
+            finally:
+                sys.stdout.write('>')
+                sys.stdout.flush()
