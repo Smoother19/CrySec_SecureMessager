@@ -10,7 +10,7 @@ except Exception as e:
     print(f"Error : {e}")
 
 app = QApplication()
-window = MainWindow().win
+window = MainWindow()
 window.show()
 
 app.exec()

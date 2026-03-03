@@ -19,7 +19,8 @@ class MainWindow(QMainWindow):
 
         # ScrollArea settings
         scrollChat = QScrollArea(alignment=Qt.AlignmentFlag.AlignCenter)
-        scrollChat.setWidgetResizable(False)
+        scrollChat.setWidgetResizable(True)
+       
 
         # Set scroll to vertical not horizontal
         scrollChat.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
@@ -29,19 +30,24 @@ class MainWindow(QMainWindow):
         scrollContainer = QWidget()
         scrollContainer.setFixedWidth(scrollChat.width())
         self.scrollLayout = QVBoxLayout(scrollContainer)
+    
+        self.scrollLayout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+
+        scrollChat.setWidget(scrollContainer)
 
         # Send message to server textbox
         sendChat = QHBoxLayout()
         self.chatText = QTextEdit(placeholderText="Send a message")
         self.chatText.setMaximumHeight(30)
-        self.btnSend = QPushButton("Send")    
+        self.btnSend = QPushButton("Send")
+        self.btnSend.clicked.connect(self.btnSendMsg)
 
         sendChat.addWidget(self.chatText)
         sendChat.addWidget(self.btnSend)
 
         #Example to add chat field to scrollArea
-        for i in range(1, 200):
-            self.addChatField("wads")
+        #for i in range(1, 200):
+        #    self.addChatField("wads")
 
         # Checkbox for Serv only (Task)
         self.servOnly = QCheckBox("Send to serv ONLY")
@@ -90,15 +96,24 @@ class MainWindow(QMainWindow):
         mainBox.addLayout(chatBox)
         mainBox.addLayout(settingsBox)
 
-        self.setLayout(mainBox)
+        self.setCentralWidget(self.win)
     
 
+    def btnSendMsg(self):
+        text = self.chatText.toPlainText()
+        if text:
+            self.addChatField(text, True)
+        else:
+            print("Text vide")
+
     # Adds a text/chat display to the UI
-    def addChatField(self, chatText: str, isSend: bool=False):
+    def addChatField(self, chatText: str, isSend: bool=False):        
         label = QLabel(chatText)  
         label.setFixedWidth(300)
+        label.setFixedHeight(30)
         label.setMargin(10)
         label.setWordWrap(True)
+        
 
         if isSend:
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -106,5 +121,6 @@ class MainWindow(QMainWindow):
         else:
             label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             label.setStyleSheet("background-color: #C9C9C9; border-radius: 10px; color: black")   
+            
         self.scrollLayout.addWidget(label) 
     
