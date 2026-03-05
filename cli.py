@@ -1,12 +1,18 @@
-import sys, os
+import sys, os, math
 from MessageHandler import MessageHandler
 
 class cli_parser:
     def __init__(self, connection):
-        self.connection = connection 
-        self.message_handler = MessageHandler()
+        self.connection = connection
+        self.message_handler = connection.message_handler
         self.plain_buffer = ""
         self.encoded_buffer = ""
+        self.waiting_for_task = False
+        self.auto_task_key = None
+        self.auto_task_algo = None
+
+        # Link the CLI to the ConnectionHandler for automated task handling
+        self.connection.set_callback(self.handle_server_message)
         
         self.commands = {
             '/help': {
@@ -27,11 +33,11 @@ class cli_parser:
             },
             '/encode': {
                 'action': self._cmd_encode,
-                'desc': "shift <k> : Encode le buffer 'plain' avec un décalage de <k> vers le buffer 'encoded'."
+                'desc': "<algo> <clé> : Encode 'plain' vers 'encoded'. Algos: shift, vigenere."
             },
             '/decode': {
                 'action': self._cmd_decode,
-                'desc': "shift <k> : Décode le buffer 'encoded' avec un décalage de <k> vers le buffer 'plain'."
+                'desc': "<algo> <clé> : Décode 'encoded' vers 'plain'. Algos: shift, vigenere."
             },
             '/send': {
                 'action': self._cmd_send,
@@ -40,8 +46,50 @@ class cli_parser:
             '/quit': {
                 'action': self._cmd_quit, 
                 'desc': "Quitte l'application."
-            }
+            },
+            # '/rsa': {
+            #     'action': self._cmd_rsa,
+            #     'desc': "<key_size> : Génère une paire de clés RSA avec la taille spécifiée."
+            # }
         }
+
+    def handle_server_message(self, message):
+        # Astuce pour nettoyer la console et éviter les ">>"
+        efface = "\r" + " " * 70 + "\r"
+        
+        # --- 1. CAS OÙ ON ATTEND LE MOT À CHIFFRER ---
+        if getattr(self, 'waiting_for_task', False):
+            self.plain_buffer = message
+            self.waiting_for_task = False
+            print(f"{efface}[+] Le mot a été récupéré dans le buffer 'Plain' : {message}")
+            print(f"[+] CMD pour envoyer le message : /encode {self.auto_task_algo} {self.auto_task_key}")
+            print("> ", end="", flush=True)
+            return
+
+        # --- 2. CAS OÙ ON DÉTECTE UNE INSTRUCTION DE TÂCHE ---
+        msg_lower = message.lower()
+        if "encode the text" in msg_lower:
+            mots = message.split() # On découpe la phrase
+            
+            if "shift-key" in msg_lower:
+                self.auto_task_algo = "shift"
+                self.auto_task_key = mots[-1] # Le dernier mot est la clé
+                self.waiting_for_task = True
+                print(f"{efface}[!] Tâche Shift détectée (Clé: {self.auto_task_key})")
+                print("> ", end="", flush=True)
+                return
+                
+            elif "vigenere key" in msg_lower:
+                self.auto_task_algo = "vigenere"
+                self.auto_task_key = mots[-1] # Le dernier mot est la clé
+                self.waiting_for_task = True
+                print(f"{efface}[!] Tâche Vigenère détectée (Clé: {self.auto_task_key})")
+                print("> ", end="", flush=True)
+                return
+
+        # --- 3. CAS NORMAL (Message classique du serveur) ---
+        print(f"{efface}[Serveur] : {message}")
+        # print("> ", end="", flush=True)
 
     def _cmd_help(self, args):
         print("\n--- Commandes disponibles ---")
@@ -87,47 +135,99 @@ class cli_parser:
             print("Usage: /clearbuf [plain|encoded]")
 
     def _cmd_encode(self, args):
-        if len(args) != 2 or args[0].lower() != 'shift':
-            print("Usage: /encode shift <k>")
+        """
+        Encode le contenu de plain_buffer vers encoded_buffer en utilisant l'algorithme spécifié.
+        """
+        if len(args) < 2:
+            print("Usage: /encode <algorithme> <clé>")
+            print("Algorithmes supportés: shift, vigenere")
             return
-        
+
+        if not self.plain_buffer:
+            print("Erreur: Le buffer 'plain' est vide. Utilisez /set plain <texte> pour le définir.")
+            return
+
+        algo = args[0].lower()
+        key = " ".join(args[1:])
+
         try:
-            shift = int(args[1])
-            self.encoded_buffer = self.message_handler.encode_shift(self.plain_buffer, shift)
-            print(f"Buffer 'plain' encodé avec un décalage de {shift} vers le buffer 'encoded'.")
+            if algo == 'shift':
+                shift_key = int(key)
+                self.encoded_buffer = self.message_handler.encode_shift(self.plain_buffer, shift_key)
+                print(f"Buffer 'plain' encodé dans 'encoded' avec l'algorithme a décalage (shift) et la clé '{shift_key}'.")
+
+            elif algo == 'vigenere':
+                self.encoded_buffer = self.message_handler.encode_vigenere(self.plain_buffer, key)
+                print(f"Buffer 'plain' encodé dans 'encoded' avec l'algorithme de Vigenère et la clé '{key}'.")
+
+            else:
+                print(f"Erreur: Algorithme d'encodage '{algo}' non reconnu.")
+                return
+                
             self._cmd_show(None)
+
         except ValueError:
-            print(f"Erreur: Le décalage '{args[1]}' doit être un entier.")
+            print(f"Erreur: La clé pour l'algorithme 'shift' doit être un entier (ex: 24).")
+        except AttributeError as e:
+            if 'encode_vigenere' in str(e):
+                print(f"Erreur: La méthode 'encode_vigenere' n'est pas encore implémentée dans MessageHandler.py.")
+            else:
+                print(f"Une erreur est survenue: {e}")
         except Exception as e:
-            print(f"Une erreur d'encodage est survenue: {e}")
+            print(f"Une erreur est survenue lors de l'encodage: {e}")
 
     def _cmd_decode(self, args):
-        if len(args) != 2 or args[0].lower() != 'shift':
-            print("Usage: /decode shift <k>")
+        """
+        Décode le contenu de encoded_buffer vers plain_buffer en utilisant l'algorithme spécifié.
+        """
+        if len(args) < 2:
+            print("Usage: /decode <algorithme> <clé>")
+            print("Algorithmes supportés: shift, vigenere")
             return
-            
+
+        if not self.encoded_buffer:
+            print("Erreur: Le buffer 'encoded' est vide. Encodez un message ou utilisez /set encoded <texte>.")
+            return
+
+        algo = args[0].lower()
+        key = " ".join(args[1:])
+
         try:
-            shift = int(args[1])
-            self.plain_buffer = self.message_handler.decode_shift(self.encoded_buffer, shift)
-            print(f"Buffer 'encoded' décode avec un décalage de {shift} vers le buffer 'plain'.")
+            if algo == 'shift':
+                shift_key = int(key)
+                self.plain_buffer = self.message_handler.decode_shift(self.encoded_buffer, shift_key)
+                print(f"Buffer 'encoded' décodé dans 'plain' avec l'algorithme a décalage (shift) et la clé '{shift_key}'.")
+
+            elif algo == 'vigenere':
+                self.plain_buffer = self.message_handler.decode_vigenere(self.encoded_buffer, key)
+                print(f"Buffer 'encoded' décodé dans 'plain' avec l'algorithme de Vigenère et la clé '{key}'.")
+
+            else:
+                print(f"Erreur: Algorithme de décodage '{algo}' non reconnu.")
+                return
+                
             self._cmd_show(None)
+
         except ValueError:
-            print(f"Erreur: Le décalage '{args[1]}' doit être un entier.")
+            print(f"Erreur: La clé pour l'algorithme 'shift' doit être un entier (ex: 24).")
+        except AttributeError as e:
+            if 'decode_vigenere' in str(e):
+                 print(f"Erreur: La méthode 'decode_vigenere' n'est pas encore implémentée dans MessageHandler.py.")
+            else:
+                print(f"Une erreur est survenue: {e}")
         except Exception as e:
-            print(f"Une erreur de décodage est survenue: {e}")
+            print(f"Une erreur est survenue lors du décodage: {e}")
 
     def _cmd_send(self, args):
         if not args:
             print("Usage: /send <text>|plain|encoded [-s]")
             return
 
-        # Règle 1: Gestion du flag -s
         msg_type = 't'
         if '-s' in args:
             msg_type = 's'
             args.remove('-s')
 
-        # S'il ne reste plus d'arguments après avoir retiré -s, c'est une erreur.
         if not args:
             print("Erreur: Le message ne peut pas être vide.")
             print("Usage: /send <text>|plain|encoded [-s]")
@@ -136,7 +236,6 @@ class cli_parser:
         message_to_send = ""
         source = args[0].lower()
 
-        # Règle 2: Gestion de la source du message
         if source == 'plain':
             if not self.plain_buffer:
                 print("Erreur: Le buffer 'plain' est vide.")
@@ -148,16 +247,13 @@ class cli_parser:
                 return
             message_to_send = self.encoded_buffer
         else:
-            # Si ce n'est ni 'plain' ni 'encoded', c'est un message texte
             message_to_send = " ".join(args)
 
-        # Règle 3: Envoi au serveur
         try:
             self.connection.send_message(message_to_send, msg_type)
             print(f"Message envoyé (type: {msg_type}): '{message_to_send}'")
         except Exception as e:
-            print(f"Erreur lors de l'envoi du message: {e}")
-
+            print(f"Erreur lors de l'envoi du message: {e}")       
 
     def _cmd_quit(self, args):
         print("Déconnexion...")
@@ -188,6 +284,5 @@ class cli_parser:
                 print(f"Commande inconnue: {cmd}. Tapez /help pour voir la liste.")
                 
         else:
-            # Par défaut, envoyer un message texte si ce n'est pas une commande
             full_message = cmd + " " + " ".join(args) if args else cmd
             self.connection.send_message(full_message, 't')

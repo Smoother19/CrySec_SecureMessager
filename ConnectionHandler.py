@@ -7,12 +7,17 @@ class ConnectionHandler:
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client.connect(('vlbelintrocrypto.hevs.ch', 6000))
         self.message_handler = MessageHandler()
+        self.callback = None
+
+    # def parse_server_task(self, message):
+    #     if "encode the text" in message and "shift"
 
     def send_message(self, text, cmd='t'):
         packet = self.message_handler.encode_message(cmd, text)
         self.client.sendall(packet)
 
     def _recvall(self, n):
+        '''Lit exactement n octets du flux réseau, ou retourne None si la connexion est fermée avant d'obtenir tous les octets.'''
         data = bytearray()
         while len(data) < n:
             try:
@@ -47,6 +52,9 @@ class ConnectionHandler:
                     return None
                 return marker + rest
 
+    def set_callback(self, callback):
+        self.callback = callback
+
     def receive_message(self):
         while True:
             try:
@@ -58,7 +66,7 @@ class ConnectionHandler:
                 length = int.from_bytes(header_data[4:6], 'big')
                 payload_size = length * 4
                 
-
+                # Assurer que nous lisons un nombre d'octets multiple de 4 pour éviter les problèmes de décodage
                 payload_data = b''
                 if payload_size > 0:
                     payload_data = self._recvall(payload_size)
@@ -74,8 +82,10 @@ class ConnectionHandler:
                 
                 header, cmd, length, message = self.message_handler.decode_message(full_packet)
                 
-                print(f"[{cmd}] Serveur : {message}")
-                # print(f"length : {len(message)} characters")
+                if self.callback:
+                    self.callback(message)
+                else:
+                    print(f"[{cmd}] Serveur : {message}")
                 
             except Exception as e:
                 sys.stdout.write('\r\033[K') 
