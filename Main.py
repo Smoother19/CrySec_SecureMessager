@@ -2,6 +2,8 @@ from ConnectionHandler import *
 from MessageHandler import *
 from cli import *
 import threading
+from PySide6.QtWidgets import QApplication
+from MainWindow import MainWindow
 
 try:
     connection = ConnectionHandler()
@@ -22,3 +24,11 @@ while True:
     cmd, args = parser.parse_args(msg)
     
     parser.execute_command(cmd, args)
+
+'''
+app = QApplication()
+window = MainWindow()
+window.show()
+
+app.exec()
+'''
