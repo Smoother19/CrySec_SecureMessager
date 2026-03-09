@@ -46,10 +46,6 @@ class MainWindow(QMainWindow):
         sendChat.addWidget(self.chatText)
         sendChat.addWidget(self.btnSend)
 
-        #Example to add chat field to scrollArea
-        #for i in range(1, 200):
-        #    self.addChatField("wads")
-
         # Checkbox for Serv only (Task)
         self.servOnly = QCheckBox("Send to serv ONLY")
 
@@ -90,55 +86,65 @@ class MainWindow(QMainWindow):
         mainBox.addLayout(settingsBox)
 
         self.setCentralWidget(self.win)
-    
 
+    
+    # Button to send event
     def btnSendMsg(self):
         text = self.chatText.toPlainText()
         if text:
             self.addChatField(text, True)
         else:
             print("Text vide")
+
     
+    # Button to generate RSA keys event
     def btnGenRSAKey(self):
         print("Generating RSA")
 
+
+    # Selecting encondig method event
     def cmbChangedSelected(self):
         text = self.encoding.currentText()
         
         self.clearLayout(self.settingsDynamicLayout) # Clear the settings layout
         match text:
             case "Shift": 
+                # Create layout for shift encoding
                 self.shiftLayout = QHBoxLayout()
 
+                # Field for the key
                 keyLabel = QLabel("Key : ")
                 keyLabel.setMaximumWidth(50)
-
                 
                 self.shiftkeyText = QTextEdit(placeholderText="Encoding Key")
                 self.shiftkeyText.setMaximumHeight(30)
+
 
                 self.shiftLayout.addWidget(keyLabel)
                 self.shiftLayout.addWidget(self.shiftkeyText)
                 self.settingsDynamicLayout.addLayout(self.shiftLayout)
             case "Vegenere": 
+                # Create layout for vegenere encoding
                 self.vegenereLayout = QHBoxLayout()
 
+                # Field for the key
                 keyLabel = QLabel("Word : ")
                 keyLabel.setMaximumWidth(50)
-
                 
                 self.vegenerekeyText = QTextEdit(placeholderText="Encoding Key")
                 self.vegenerekeyText.setMaximumHeight(30)
+
 
                 self.vegenereLayout.addWidget(keyLabel)
                 self.vegenereLayout.addWidget(self.vegenerekeyText)
                 self.settingsDynamicLayout.addLayout(self.vegenereLayout)
             case "RSA": 
+                # Create layout for rsa encoding
                 self.rsaLayout = QVBoxLayout()
                 privateLayout = QHBoxLayout()
                 publicLayout = QHBoxLayout()
 
-
+                # Field for the private key
                 privateLabel = QLabel("Private Key : ")
                 privateLabel.setFixedWidth(70)
                 
@@ -148,14 +154,14 @@ class MainWindow(QMainWindow):
                 privateLayout.addWidget(privateLabel)
                 privateLayout.addWidget(self.rsaPrivateText)
 
-            
+                # Field for the public key
                 publicLabel = QLabel("Public Key : ")
                 publicLabel.setFixedWidth(70)
                 
                 self.rsaPublicText = QTextEdit(placeholderText="Public Key")
                 self.rsaPublicText.setMaximumHeight(30)
 
-
+                # Button to generate RSA keys
                 self.btnGenerateRSA = QPushButton("Generate")
                 self.btnGenerateRSA.clicked.connect(self.btnGenRSAKey)
 
@@ -170,7 +176,9 @@ class MainWindow(QMainWindow):
                 print("DiffieHellman")
             case "Hashing": 
                 print("Hashing")
+
         
+    # CLears a layout of it's wigets AND layouts
     def clearLayout(self, layout: QLayout):
         if layout is not None:
             while layout.count():
@@ -183,14 +191,14 @@ class MainWindow(QMainWindow):
                             widget.setParent(None)
                     layout.removeItem(item)
 
+
     # Adds a text/chat display to the UI
     def addChatField(self, chatText: str, isSend: bool=False):        
         label = QLabel(chatText)  
         label.setFixedWidth(300)
         label.setFixedHeight(30)
         label.setMargin(10)
-        label.setWordWrap(True)
-        
+        label.setWordWrap(True)        
 
         if isSend:
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)

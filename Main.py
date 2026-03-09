@@ -15,7 +15,7 @@ window.show()
 
 app.exec()
 
-'''
+
 # Recieve messages from server on a separate thread
 receive_msg = threading.Thread(target=connection.receive_message)
 receive_msg.start()
@@ -25,4 +25,3 @@ while True:
     #Send message to server
     msg = input('Enter your message: ')
     connection.send_message(msg)
-'''
