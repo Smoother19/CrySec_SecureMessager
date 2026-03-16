@@ -102,9 +102,12 @@ class MainWindow(QMainWindow):
     
     # Button to send event
     def btnSendMsg(self):
-        text = self.chatText.toPlainText()
+        text = self.chatText.toPlainText()        
         if text:
-            self.connection.send_message(text)
+            if self.servOnly.isChecked():
+                self.connection.send_message(text, 's')
+            else:                
+                self.connection.send_message(text)
             self.addChatField(text, True)
             self.chatText.clear()
         else:
@@ -114,6 +117,7 @@ class MainWindow(QMainWindow):
     # Button to generate RSA keys event
     def btnGenRSAKey(self):
         print("Generating RSA")
+        #self.connection.message_handler.rsa_keygen()
 
 
     # Selecting encondig method event

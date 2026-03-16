@@ -20,8 +20,7 @@ while True:
     parser.execute_command(cmd, args)
 
 '''
-app = QApplication()
+app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
-
-app.exec()
+sys.exit(app.exec())
