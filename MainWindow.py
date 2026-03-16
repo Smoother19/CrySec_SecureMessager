@@ -3,9 +3,9 @@ from PySide6.QtCore import Qt, QSize, QMargins
 
 
 import threading
+from MessageTransferer import *
 from ConnectionHandler import *
 from MessageHandler import *
-from queue import Queue
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -93,8 +93,11 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.win)
 
-        self.message_queue = Queue()
         self.startConnection()
+        self.textSignal = MessageTransferer()
+        self.textSignal.text.connect(self.addChatField)
+        self.connection.set_callback(self.textSignal.emitText)
+
 
     
     # Button to send event
@@ -103,6 +106,7 @@ class MainWindow(QMainWindow):
         if text:
             self.connection.send_message(text)
             self.addChatField(text, True)
+            self.chatText.clear()
         else:
             print("Text vide")
 
@@ -229,6 +233,6 @@ class MainWindow(QMainWindow):
         receive_msg = threading.Thread(target=self.connection.receive_message)
         receive_msg.start()    
 
-    def wrapper(self, conn, queue):
-        result = conn.receive_message()
-        queue.put(result)
+    def handle_recieveMsg(self, value):
+        print("Received:", value)
+        self.textSignal.emit(value)
