@@ -1,6 +1,12 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt, QSize, QMargins
 
+
+import threading
+from ConnectionHandler import *
+from MessageHandler import *
+from queue import Queue
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -87,11 +93,15 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.win)
 
+        self.message_queue = Queue()
+        self.startConnection()
+
     
     # Button to send event
     def btnSendMsg(self):
         text = self.chatText.toPlainText()
         if text:
+            self.connection.send_message(text)
             self.addChatField(text, True)
         else:
             print("Text vide")
@@ -208,4 +218,17 @@ class MainWindow(QMainWindow):
             label.setStyleSheet("background-color: #C9C9C9; border-radius: 10px; color: black")   
             
         self.scrollLayout.addWidget(label) 
-    
+
+    def startConnection(self):
+
+        try:
+            self.connection = ConnectionHandler()
+        except Exception as e:
+            print(f"Error : {e}")
+
+        receive_msg = threading.Thread(target=self.connection.receive_message)
+        receive_msg.start()    
+
+    def wrapper(self, conn, queue):
+        result = conn.receive_message()
+        queue.put(result)
