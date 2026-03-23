@@ -84,7 +84,6 @@ class MainWindow(QMainWindow):
         chatBox.addLayout(sendChat)
 
         
-        settingsBox.addWidget(scrollChat)
         settingsBox.addLayout(encodeLayout)
         settingsBox.addLayout(self.settingsDynamicLayout)
 
@@ -95,6 +94,7 @@ class MainWindow(QMainWindow):
 
         self.startConnection()
         self.textSignal = MessageTransferer()
+        # Set event for handling messages reception
         self.textSignal.text.connect(self.addChatField)
         self.connection.set_callback(self.textSignal.emitText)
 
@@ -160,34 +160,23 @@ class MainWindow(QMainWindow):
                 # Create layout for rsa encoding
                 self.rsaLayout = QVBoxLayout()
                 privateLayout = QHBoxLayout()
-                publicLayout = QHBoxLayout()
 
                 # Field for the private key
-                privateLabel = QLabel("Private Key : ")
+                privateLabel = QLabel("Keys Length : ")
                 privateLabel.setFixedWidth(70)
                 
-                self.rsaPrivateText = QTextEdit(placeholderText="Private Key")
+                self.rsaPrivateText = QTextEdit(placeholderText="Keys length")
                 self.rsaPrivateText.setMaximumHeight(30)
 
                 privateLayout.addWidget(privateLabel)
                 privateLayout.addWidget(self.rsaPrivateText)
-
-                # Field for the public key
-                publicLabel = QLabel("Public Key : ")
-                publicLabel.setFixedWidth(70)
-                
-                self.rsaPublicText = QTextEdit(placeholderText="Public Key")
-                self.rsaPublicText.setMaximumHeight(30)
+               
 
                 # Button to generate RSA keys
                 self.btnGenerateRSA = QPushButton("Generate")
                 self.btnGenerateRSA.clicked.connect(self.btnGenRSAKey)
 
-                publicLayout.addWidget(publicLabel)
-                publicLayout.addWidget(self.rsaPublicText)
-
                 self.rsaLayout.addLayout(privateLayout)
-                self.rsaLayout.addLayout(publicLayout)
                 self.rsaLayout.addWidget(self.btnGenerateRSA)
                 self.settingsDynamicLayout.addLayout(self.rsaLayout)
             case "DiffieHellman": 
@@ -197,17 +186,13 @@ class MainWindow(QMainWindow):
 
         
     # CLears a layout of it's wigets AND layouts
-    def clearLayout(self, layout: QLayout):
-        if layout is not None:
-            while layout.count():
-                item = layout.takeAt(0)
-                if item is not None:
-                    while item.count():
-                        subitem = item.takeAt(0)
-                        widget = subitem.widget()
-                        if widget is not None:
-                            widget.setParent(None)
-                    layout.removeItem(item)
+    def clearLayout(self, layout:QLayout):
+        for widget_no in range(0,layout.count()):
+            if layout.itemAt(widget_no) != None:
+                if "Layout" not in str(layout.itemAt(widget_no)):
+                    layout.itemAt(widget_no).widget().deleteLater()
+                else:
+                    self.clearLayout(layout.itemAt(widget_no))
 
 
     # Adds a text/chat display to the UI
@@ -228,7 +213,6 @@ class MainWindow(QMainWindow):
         self.scrollLayout.addWidget(label) 
 
     def startConnection(self):
-
         try:
             self.connection = ConnectionHandler()
         except Exception as e:
@@ -236,7 +220,3 @@ class MainWindow(QMainWindow):
 
         receive_msg = threading.Thread(target=self.connection.receive_message)
         receive_msg.start()    
-
-    def handle_recieveMsg(self, value):
-        print("Received:", value)
-        self.textSignal.emit(value)
