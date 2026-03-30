@@ -103,11 +103,42 @@ class MainWindow(QMainWindow):
     # Button to send event
     def btnSendMsg(self):
         text = self.chatText.toPlainText()        
-        if text:
+        if text:                      
+            msgEncr = ""
+            match self.encoding.currentText():
+                case "Shift": 
+                    shftKey = int(self.shiftkeyText.toPlainText())
+                    if shftKey is not None:
+                        msgEncr = self.connection.message_handler.encode_shift(text, shftKey)
+                    else:
+                        self.addChatField("Error: Wrong Shift Key value")
+                        raise ValueError
+                case "Vegenere": 
+                    vgnrKey = self.shiftkeyText.toPlainText()
+                    if shftKey is not None:
+                        msgEncr = self.connection.message_handler.encode_vigenere(vgnrKey)
+                    else:
+                        self.addChatField("Error: Wrong Vegenere Key value")
+                        raise ValueError
+                case "RSA": 
+                    if self.rsaShared_key is not None and self.rsaE is not None and self.rsaPrivate_key is not None :
+                        print("Aled je cé pa koa fèr")
+                        #Faire l'encryption RSA mais je comprend pas les paramètres
+
+                    else:
+                        self.addChatField("Error: Wrong RSA data. Have you generated RSA keys?")
+                        raise ValueError
+                
+                case "DiffieHellman": 
+                    print("wasd")
+                case "Hashing": 
+                    print("wasd")
             if self.servOnly.isChecked():
-                self.connection.send_message(text, 's')
-            else:                
-                self.connection.send_message(text)
+                #self.connection.send_message(msgEncr, 's')
+                print("wasd")
+            else:  
+                #self.connection.send_message(msgEncr)
+                print("wasd")
             self.addChatField(text, True)
             self.chatText.clear()
         else:
@@ -116,8 +147,17 @@ class MainWindow(QMainWindow):
     
     # Button to generate RSA keys event
     def btnGenRSAKey(self):
-        print("Generating RSA")
-        #self.connection.message_handler.rsa_keygen()
+        size = int(self.rsaKeyLen.toPlainText())
+        
+        if self.size is not None:
+            if  size < 2048:
+                self.addChatField("Error: RSA key length too small (< 2048)")
+                raise ValueError
+            else:
+                self.rsaShared_key, self.rsaE, self.rsaPrivate_key = self.connection.message_handler.rsa_keygen(size)
+        else:
+            self.addChatField("Error: Wrong RSA key length value")
+            raise ValueError
 
 
     # Selecting encondig method event
@@ -165,11 +205,11 @@ class MainWindow(QMainWindow):
                 privateLabel = QLabel("Keys Length : ")
                 privateLabel.setFixedWidth(70)
                 
-                self.rsaPrivateText = QTextEdit(placeholderText="Keys length")
-                self.rsaPrivateText.setMaximumHeight(30)
+                self.rsaKeyLen = QTextEdit(placeholderText="Keys length")
+                self.rsaKeyLen.setMaximumHeight(30)
 
                 privateLayout.addWidget(privateLabel)
-                privateLayout.addWidget(self.rsaPrivateText)
+                privateLayout.addWidget(self.rsaKeyLen)
                
 
                 # Button to generate RSA keys
