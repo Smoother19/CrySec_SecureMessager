@@ -183,6 +183,7 @@ class MainWindow(QMainWindow):
                 print("DiffieHellman")
             case "Hashing": 
                 print("Hashing")
+        # TODO Pour corriger l'align des settings je pourrai passer le parent en self mais c'est bof
 
         
     # CLears a layout of it's wigets AND layouts
@@ -218,5 +219,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error : {e}")
 
-        receive_msg = threading.Thread(target=self.connection.receive_message)
-        receive_msg.start()    
+        self.receive_msg = threading.Thread(target=self.connection.receive_message)
+        self.receive_msg.setDaemon(True)
+        self.receive_msg.start()    
+        
+
+    def closeEvent(self, event):
+        self.connection.closeConnection()
+        return super().closeEvent(event)

@@ -83,7 +83,10 @@ class ConnectionHandler:
                 header, cmd, length, message = self.message_handler.decode_message(full_packet)
                 
                 if self.callback:
-                    self.callback(message)
+                    match cmd:
+                        case 't': self.callback(message)
+                        case 's': self.callback("Server: " + message)
+                        
                 else:
                     print(f"[{cmd}] Serveur : {message}")
                 
@@ -94,3 +97,6 @@ class ConnectionHandler:
             finally:
                 sys.stdout.write('>')
                 sys.stdout.flush()
+    
+    def closeConnection(self):
+        self.client.close()
