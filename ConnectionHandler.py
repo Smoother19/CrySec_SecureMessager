@@ -9,8 +9,6 @@ class ConnectionHandler:
         self.message_handler = MessageHandler()
         self.callback = None
 
-    # def parse_server_task(self, message):
-    #     if "encode the text" in message and "shift"
 
     def send_message(self, text, cmd='t'):
         packet = self.message_handler.encode_message(cmd, text)
@@ -85,7 +83,7 @@ class ConnectionHandler:
                 if self.callback:
                     match cmd:
                         case 't': self.callback(message)
-                        case 's': self.callback("Server: " + message)
+                        case 's': self.callback(message)
                         
                 else:
                     print(f"[{cmd}] Serveur : {message}")

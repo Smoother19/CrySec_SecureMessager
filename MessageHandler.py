@@ -7,6 +7,7 @@ class MessageHandler():
     def __init__(self, header='ISC'):
         self.frame = Frame(header)
     
+    '''
     def parse_server_task(self, message):
         """ Analyse le message pour voir si c'est une tâche (insensible à la casse) """
         msg_lower = message.lower()
@@ -25,6 +26,7 @@ class MessageHandler():
                 return ("vigenere", mots[-1])
                 
         return None
+        '''
 
     def encode_message(self, cmd, message):
 
@@ -58,7 +60,7 @@ class MessageHandler():
         result = ''
 
         for letter in message:
-            new_code = (ord(letter) + shift) #% 1114112
+            new_code = (ord(letter) + shift)
             result += chr(new_code)
 
         return result
@@ -67,7 +69,7 @@ class MessageHandler():
         result = ''
 
         for letter in message:
-            new_code = (ord(letter) - shift) #% 1114112
+            new_code = (ord(letter) - shift)
             result += chr(new_code)
 
         return result

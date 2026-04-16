@@ -134,10 +134,10 @@ class MainWindow(QMainWindow):
                 case "Hashing": 
                     print("wasd")
             if self.servOnly.isChecked():
-                #self.connection.send_message(msgEncr, 's')
+                self.connection.send_message(msgEncr, 's')
                 print("wasd")
             else:  
-                #self.connection.send_message(msgEncr)
+                self.connection.send_message(msgEncr)
                 print("wasd")
             self.addChatField(text, True)
             self.chatText.clear()
