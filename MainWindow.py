@@ -6,10 +6,12 @@ import threading
 from MessageTransferer import *
 from ConnectionHandler import *
 from MessageHandler import *
+from cli import *
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
         
         self.win = QWidget()
 
@@ -93,9 +95,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.win)
 
         self.startConnection()
+        self.parser = cli_parser(self.connection)
         self.textSignal = MessageTransferer()
         # Set event for handling messages reception
-        self.textSignal.text.connect(self.addChatField)
+        self.textSignal.text.connect(self.handleServerReceptionToWindw)
         self.connection.set_callback(self.textSignal.emitText)
 
 
@@ -144,6 +147,30 @@ class MainWindow(QMainWindow):
         else:
             print("Text vide")
 
+    def btnSendTaskShift(self):
+        key = 0
+        try:
+            key = int(self.shiftkeyText.toPlainText())
+            if (key > 0):
+                #Commande: 
+                self.parser._cmd_encode(self.parser, "shift", key) # A adapter à la commande car aled on cé pa
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key value !")
+
+    def btnSendTaskVegenere(self):
+        key = ""
+        try:
+            key = self.txtVegenKey.toPlainText()
+            if (key is not None):
+                #Commande: 
+                self.parser._cmd_encode(self.parser, "vegenere", key) # A adapter à la commande car aled on cé pa
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Vegenere key value !")
+
     
     # Button to generate RSA keys event
     def btnGenRSAKey(self):
@@ -167,35 +194,52 @@ class MainWindow(QMainWindow):
         self.clearLayout(self.settingsDynamicLayout) # Clear the settings layout
         match text:
             case "Shift": 
-                # Create layout for shift encoding
-                self.shiftLayout = QHBoxLayout()
 
-                # Field for the key
+                # Create layout for rsa encoding
+                self.shiftLayout = QVBoxLayout()
+                keyLayout = QHBoxLayout()
+
+                # Field for the private key
                 keyLabel = QLabel("Key : ")
                 keyLabel.setMaximumWidth(50)
                 
-                self.shiftkeyText = QTextEdit(placeholderText="Encoding Key")
+                self.shiftkeyText = QTextEdit(placeholderText="Keys length")
                 self.shiftkeyText.setMaximumHeight(30)
 
+                keyLayout.addWidget(keyLabel)
+                keyLayout.addWidget(self.shiftkeyText)
+               
 
-                self.shiftLayout.addWidget(keyLabel)
-                self.shiftLayout.addWidget(self.shiftkeyText)
+                # Button to generate RSA keys
+                self.btnSendShift = QPushButton("Send Task")
+                self.btnSendShift.clicked.connect(self.btnSendTaskShift)
+
+                self.shiftLayout.addWidget(self.btnSendShift)
+                self.shiftLayout.addLayout(keyLayout)
                 self.settingsDynamicLayout.addLayout(self.shiftLayout)
             case "Vegenere": 
-                # Create layout for vegenere encoding
-                self.vegenereLayout = QHBoxLayout()
+                # Create layout for rsa encoding
+                self.vegenLayout = QVBoxLayout()
+                keyLayout = QHBoxLayout()
 
-                # Field for the key
-                keyLabel = QLabel("Word : ")
+                # Field for the private key
+                keyLabel = QLabel("Key : ")
                 keyLabel.setMaximumWidth(50)
                 
-                self.vegenerekeyText = QTextEdit(placeholderText="Encoding Key")
-                self.vegenerekeyText.setMaximumHeight(30)
+                self.txtVegenKey = QTextEdit(placeholderText="Key")
+                self.txtVegenKey.setMaximumHeight(30)
 
+                keyLayout.addWidget(keyLabel)
+                keyLayout.addWidget(self.txtVegenKey)
+               
 
-                self.vegenereLayout.addWidget(keyLabel)
-                self.vegenereLayout.addWidget(self.vegenerekeyText)
-                self.settingsDynamicLayout.addLayout(self.vegenereLayout)
+                # Button to generate RSA keys
+                self.btnSendVegen = QPushButton("Send Task")
+                self.btnSendVegen.clicked.connect(self.btnSendTaskVegenere)
+
+                self.vegenLayout.addWidget(self.btnSendVegen)
+                self.vegenLayout.addLayout(keyLayout)
+                self.settingsDynamicLayout.addLayout(self.vegenLayout)
             case "RSA": 
                 # Create layout for rsa encoding
                 self.rsaLayout = QVBoxLayout()
@@ -252,6 +296,10 @@ class MainWindow(QMainWindow):
             label.setStyleSheet("background-color: #C9C9C9; border-radius: 10px; color: black")   
             
         self.scrollLayout.addWidget(label) 
+    
+    def handleServerReceptionToWindw(self, message):
+        self.parser.handle_server_message(message)
+        self.addChatField(message)
 
     def startConnection(self):
         try:
