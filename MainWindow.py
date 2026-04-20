@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt, QSize, QMargins
+from PySide6.QtGui import QFont
 
 
 import threading
@@ -14,6 +15,8 @@ class MainWindow(QMainWindow):
         
         
         self.win = QWidget()
+
+        self.fontNew = QFont("Consolas", 10)
 
         # window settings
         self.win.setWindowTitle("CRYSEC - Secure Messager")
@@ -114,9 +117,14 @@ class MainWindow(QMainWindow):
             msgEncr = ""
             match self.encoding.currentText():
                 case "Shift": 
-                    shftKey = int(self.shiftkeyText.toPlainText())
+                    shftKey = int(self.chatText.toPlainText())
                     if shftKey is not None:
-                        msgEncr = self.connection.message_handler.encode_shift(text, shftKey)
+                        self.parser._cmd_encode(["shift", f"{shftKey}"]) # Pass cli cmd args
+                        self.btnSendShift.setEnabled(False)
+                        self.btnSend.setEnabled(True)
+                        self.shiftkeyText.setEnabled(False)
+                        self.parser._cmd_send(["-s", "encoded"])
+
                     else:
                         self.addChatField("Error: Wrong Shift Key value")
                         raise ValueError
@@ -152,16 +160,22 @@ class MainWindow(QMainWindow):
             print("Text vide")
 
     def btnSendTaskShift(self):
-        key = 0
+        key_len = 0
         try:
-            key = int(self.shiftkeyText.toPlainText())
-            if (key > 0):
+            key_len = int(self.shiftkeyText.toPlainText())
+            if (key_len > 0):
                 #Commande: 
-                self.parser._cmd_encode(self.parser, "shift", key) # A adapter à la commande car aled on cé pa
+                self.parser._cmd_send(["-s", "task", "shift", "encode", f"{key_len}"]) # Pass cli cmd args
+                self.btnSendShift.setEnabled(False)
+                self.btnSend.setEnabled(True)
+                self.shiftkeyText.setEnabled(False)
+
             else:
                 raise ValueError
         except ValueError:
-            self.addChatField("Error: Wrong Shift key value !")
+            self.addChatField("Error: Wrong Shift key length !")
+        self.shiftkeyText.setPlainText("")
+        
 
     def btnSendTaskVegenere(self):
         key = ""
@@ -282,7 +296,8 @@ class MainWindow(QMainWindow):
                 print("DiffieHellman")
             case "Hashing": 
                 print("Hashing")
-        # TODO Pour corriger l'align des settings je pourrai passer le parent en self mais c'est bof
+        
+        self.btnSend.setEnabled(False)
 
         
     # CLears a layout of it's wigets AND layouts
@@ -299,8 +314,9 @@ class MainWindow(QMainWindow):
     def addChatField(self, chatText: str, isSend: bool=False):        
         label = QLabel(chatText)  
         label.setFixedWidth(300)
-        label.setFixedHeight(30)
+        label.setMinimumHeight(30)
         label.setMargin(10)
+        label.setFont(self.fontNew)
         label.setWordWrap(True)        
 
         if isSend:
