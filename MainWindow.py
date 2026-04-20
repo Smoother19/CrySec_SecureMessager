@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
 
         # Checkbox for Serv only (Task)
         self.servOnly = QCheckBox("Send to serv ONLY")
+        self.servOnly.stateChanged.connect(self.checkOnlyServ)
 
         # CHoosing encoding method
         encodeLayout = QHBoxLayout()
@@ -117,20 +118,10 @@ class MainWindow(QMainWindow):
             msgEncr = ""
             match self.encoding.currentText():
                 case "Shift": 
-                    shftKey = int(self.chatText.toPlainText())
-                    if shftKey is not None:
-                        self.parser._cmd_encode(["shift", f"{shftKey}"]) # Pass cli cmd args
-                        self.btnSendShift.setEnabled(False)
-                        self.btnSend.setEnabled(True)
-                        self.shiftkeyText.setEnabled(False)
-                        self.parser._cmd_send(["-s", "encoded"])
-
-                    else:
-                        self.addChatField("Error: Wrong Shift Key value")
-                        raise ValueError
+                    ...
                 case "Vegenere": 
                     vgnrKey = self.shiftkeyText.toPlainText()
-                    if shftKey is not None:
+                    if vgnrKey is not None:
                         msgEncr = self.connection.message_handler.encode_vigenere(vgnrKey)
                     else:
                         self.addChatField("Error: Wrong Vegenere Key value")
@@ -167,6 +158,27 @@ class MainWindow(QMainWindow):
                 #Commande: 
                 self.parser._cmd_send(["-s", "task", "shift", "encode", f"{key_len}"]) # Pass cli cmd args
                 self.btnSendShift.setEnabled(False)
+                self.shiftkeyText.setEnabled(False)                
+                self.btnSendShifted.setEnabled(True)
+                self.shiftedKey.setEnabled(True)
+                self.shiftedMsgText.setEnabled(True)
+
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key length !")
+        self.shiftkeyText.setPlainText("")
+    
+    def btnSendShiftedMsg(self):
+        key = 0
+        try:
+            key = int(self.shiftedKey.toPlainText())
+            msg = self.shiftedMsgText.toPlainText()
+            if (key > 0 and msg is not None):
+                #Commande: 
+                encoded = self.connection.message_handler.encode_shift(msg, key)
+                self.connection.send_message(encoded, "s")
+                self.btnSendShift.setEnabled(False)
                 self.btnSend.setEnabled(True)
                 self.shiftkeyText.setEnabled(False)
 
@@ -174,6 +186,8 @@ class MainWindow(QMainWindow):
                 raise ValueError
         except ValueError:
             self.addChatField("Error: Wrong Shift key length !")
+        except:
+            self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
         self.shiftkeyText.setPlainText("")
         
 
@@ -220,24 +234,55 @@ class MainWindow(QMainWindow):
                 # Create layout for rsa encoding
                 self.shiftLayout = QVBoxLayout()
                 keyLayout = QHBoxLayout()
+                msgLayout = QHBoxLayout()
+                shftlayout = QHBoxLayout()
 
                 # Field for the private key
-                keyLabel = QLabel("Key : ")
+                keyLabel = QLabel("Key length : ")
                 keyLabel.setMaximumWidth(50)
                 
                 self.shiftkeyText = QTextEdit(placeholderText="Keys length")
                 self.shiftkeyText.setMaximumHeight(30)
 
+                # Field for the private key
+                lblMsg = QLabel("Message (encoded) : ")
+                lblMsg.setMaximumWidth(50)
+                
+                self.shiftedMsgText = QTextEdit(placeholderText="Shifted Message")
+                self.shiftedMsgText.setMaximumHeight(30)
+                self.shiftedMsgText.setEnabled(False)
+
+                # Field for the private key
+                lblshiftkey = QLabel("Key : ")
+                lblshiftkey.setMaximumWidth(50)
+                
+                self.shiftedKey = QTextEdit(placeholderText="Key")
+                self.shiftedKey.setMaximumHeight(30)
+                self.shiftedKey.setEnabled(False)
+
                 keyLayout.addWidget(keyLabel)
                 keyLayout.addWidget(self.shiftkeyText)
+
+                msgLayout.addWidget(lblMsg)                
+                msgLayout.addWidget(self.shiftedMsgText)
+
+                shftlayout.addWidget(lblshiftkey)                
+                shftlayout.addWidget(self.shiftedKey)
+
+                self.btnSendShifted = QPushButton("Encode and Send")
+                self.btnSendShifted.clicked.connect(self.btnSendShiftedMsg)
+                self.btnSendShifted.setEnabled(False)
                
 
                 # Button to generate RSA keys
                 self.btnSendShift = QPushButton("Send Task")
                 self.btnSendShift.clicked.connect(self.btnSendTaskShift)
 
-                self.shiftLayout.addWidget(self.btnSendShift)
                 self.shiftLayout.addLayout(keyLayout)
+                self.shiftLayout.addWidget(self.btnSendShift)
+                self.shiftLayout.addLayout(msgLayout)
+                self.shiftLayout.addLayout(shftlayout)
+                self.shiftLayout.addWidget(self.btnSendShifted)
                 self.settingsDynamicLayout.addLayout(self.shiftLayout)
             case "Vegenere": 
                 # Create layout for rsa encoding
@@ -299,6 +344,10 @@ class MainWindow(QMainWindow):
         
         self.btnSend.setEnabled(False)
 
+
+    def checkOnlyServ(self):
+        self.chatText.setEnabled(not self.servOnly.isChecked())
+        self.btnSend.setEnabled(not self.servOnly.isChecked())
         
     # CLears a layout of it's wigets AND layouts
     def clearLayout(self, layout:QLayout):
@@ -317,7 +366,8 @@ class MainWindow(QMainWindow):
         label.setMinimumHeight(30)
         label.setMargin(10)
         label.setFont(self.fontNew)
-        label.setWordWrap(True)        
+        label.setWordWrap(True)   
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)     
 
         if isSend:
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
