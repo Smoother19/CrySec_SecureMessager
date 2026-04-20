@@ -101,6 +101,10 @@ class MainWindow(QMainWindow):
         self.textSignal.text.connect(self.handleServerReceptionToWindw)
         self.connection.set_callback(self.textSignal.emitText)
 
+        # Set cmb box to first item and doesnt generate any error 
+        self.encoding.setCurrentIndex(1) 
+        self.encoding.setCurrentIndex(0)
+
 
     
     # Button to send event
@@ -171,6 +175,9 @@ class MainWindow(QMainWindow):
         except ValueError:
             self.addChatField("Error: Wrong Vegenere key value !")
 
+    def btnSendTaskRSA(self):
+        ...
+
     
     # Button to generate RSA keys event
     def btnGenRSAKey(self):
@@ -182,6 +189,7 @@ class MainWindow(QMainWindow):
                 raise ValueError
             else:
                 self.rsaShared_key, self.rsaE, self.rsaPrivate_key = self.connection.message_handler.rsa_keygen(size)
+                self.btnRSATask.setEnabled(True)
         else:
             self.addChatField("Error: Wrong RSA key length value")
             raise ValueError
@@ -257,11 +265,18 @@ class MainWindow(QMainWindow):
                
 
                 # Button to generate RSA keys
-                self.btnGenerateRSA = QPushButton("Generate")
+                self.btnGenerateRSA = QPushButton("Send Task")
                 self.btnGenerateRSA.clicked.connect(self.btnGenRSAKey)
+
+                
+                # Button to send RSA task
+                self.btnRSATask = QPushButton("Generate")
+                self.btnRSATask.clicked.connect(self.btnSendTaskRSA)
+                self.btnRSATask.setEnabled(False)
 
                 self.rsaLayout.addLayout(privateLayout)
                 self.rsaLayout.addWidget(self.btnGenerateRSA)
+                self.rsaLayout.addWidget(self.btnRSATask)
                 self.settingsDynamicLayout.addLayout(self.rsaLayout)
             case "DiffieHellman": 
                 print("DiffieHellman")
