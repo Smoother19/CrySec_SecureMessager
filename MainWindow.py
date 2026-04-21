@@ -192,16 +192,45 @@ class MainWindow(QMainWindow):
         
 
     def btnSendTaskVegenere(self):
-        key = ""
+        key_len = 0
         try:
-            key = self.txtVegenKey.toPlainText()
-            if (key is not None):
+            key_len = int(self.shiftkeyText.toPlainText())
+            if (key_len > 0):
                 #Commande: 
-                self.parser._cmd_encode(self.parser, "vegenere", key) # A adapter à la commande car aled on cé pa
+                self.parser._cmd_send(["-s", "task", "vegenere", "encode", f"{key_len}"]) # Pass cli cmd args
+                self.btnSendVgnr.setEnabled(False)
+                self.vgnrkeyText.setEnabled(False)                
+                self.btnSendVgnred.setEnabled(True)
+                self.vgnredKey.setEnabled(True)
+                self.vgnredMsgText.setEnabled(True)
+
             else:
                 raise ValueError
         except ValueError:
-            self.addChatField("Error: Wrong Vegenere key value !")
+            self.addChatField("Error: Wrong Shift key length !")
+        self.shiftkeyText.setPlainText("")
+
+    
+    def btnSendVegeneredMsg(self):
+        key = 0
+        try:
+            key = int(self.vgnredKey.toPlainText())
+            msg = self.vgnredMsgText.toPlainText()
+            if (key > 0 and msg is not None):
+                #Commande: 
+                encoded = self.connection.message_handler.encode_vigenere(msg, key)
+                self.connection.send_message(encoded, "s")
+                self.btnSendVgnr.setEnabled(False)
+                self.btnSend.setEnabled(True)
+                self.vgnrkeyText.setEnabled(False)
+
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key length !")
+        except:
+            self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
+        self.shiftkeyText.setPlainText("")
 
     def btnSendTaskRSA(self):
         ...
@@ -286,27 +315,58 @@ class MainWindow(QMainWindow):
                 self.settingsDynamicLayout.addLayout(self.shiftLayout)
             case "Vegenere": 
                 # Create layout for rsa encoding
-                self.vegenLayout = QVBoxLayout()
+                self.vegenereLayout = QVBoxLayout()
                 keyLayout = QHBoxLayout()
+                msgLayout = QHBoxLayout()
+                vgnrlayout = QHBoxLayout()
 
                 # Field for the private key
-                keyLabel = QLabel("Key : ")
+                keyLabel = QLabel("Key length : ")
                 keyLabel.setMaximumWidth(50)
                 
-                self.txtVegenKey = QTextEdit(placeholderText="Key")
-                self.txtVegenKey.setMaximumHeight(30)
+                self.vgnrkeyText = QTextEdit(placeholderText="Keys length")
+                self.vgnrkeyText.setMaximumHeight(30)
+
+                # Field for the private key
+                lblMsg = QLabel("Message (encoded) : ")
+                lblMsg.setMaximumWidth(50)
+                
+                self.vgnredMsgText = QTextEdit(placeholderText="Vegenere Encoded Message")
+                self.vgnredMsgText.setMaximumHeight(30)
+                self.vgnredMsgText.setEnabled(False)
+
+                # Field for the private key
+                lblshiftkey = QLabel("Key : ")
+                lblshiftkey.setMaximumWidth(50)
+                
+                self.vgnredKey = QTextEdit(placeholderText="Key")
+                self.vgnredKey.setMaximumHeight(30)
+                self.vgnredKey.setEnabled(False)
 
                 keyLayout.addWidget(keyLabel)
-                keyLayout.addWidget(self.txtVegenKey)
+                keyLayout.addWidget(self.vgnrkeyText)
+
+                msgLayout.addWidget(lblMsg)                
+                msgLayout.addWidget(self.vgnredMsgText)
+
+                vgnrlayout.addWidget(lblshiftkey)                
+                vgnrlayout.addWidget(self.vgnredKey)
+
+                self.btnSendVgnred = QPushButton("Encode and Send")
+                self.btnSendVgnred.clicked.connect(self.btnSendShiftedMsg)
+                self.btnSendVgnred.setEnabled(False)
                
 
                 # Button to generate RSA keys
-                self.btnSendVegen = QPushButton("Send Task")
-                self.btnSendVegen.clicked.connect(self.btnSendTaskVegenere)
+                self.btnSendVgnr = QPushButton("Send Task")
+                self.btnSendVgnr.clicked.connect(self.btnSendTaskShift)
 
-                self.vegenLayout.addWidget(self.btnSendVegen)
-                self.vegenLayout.addLayout(keyLayout)
-                self.settingsDynamicLayout.addLayout(self.vegenLayout)
+                self.vegenereLayout.addLayout(keyLayout)
+                self.vegenereLayout.addWidget(self.btnSendVgnr)
+                self.vegenereLayout.addLayout(msgLayout)
+                self.vegenereLayout.addLayout(vgnrlayout)
+                self.vegenereLayout.addWidget(self.btnSendVgnred)
+                self.settingsDynamicLayout.addLayout(self.vegenereLayout)
             case "RSA": 
                 # Create layout for rsa encoding
                 self.rsaLayout = QVBoxLayout()
