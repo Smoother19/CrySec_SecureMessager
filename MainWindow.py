@@ -16,8 +16,6 @@ class MainWindow(QMainWindow):
         
         self.win = QWidget()
 
-        self.fontNew = QFont("Consolas", 10)
-
         # window settings
         self.win.setWindowTitle("CRYSEC - Secure Messager")
         self.win.setFixedSize(QSize(700, 700))
@@ -114,37 +112,8 @@ class MainWindow(QMainWindow):
     # Button to send event
     def btnSendMsg(self):
         text = self.chatText.toPlainText()        
-        if text:                      
-            msgEncr = ""
-            match self.encoding.currentText():
-                case "Shift": 
-                    ...
-                case "Vegenere": 
-                    vgnrKey = self.shiftkeyText.toPlainText()
-                    if vgnrKey is not None:
-                        msgEncr = self.connection.message_handler.encode_vigenere(vgnrKey)
-                    else:
-                        self.addChatField("Error: Wrong Vegenere Key value")
-                        raise ValueError
-                case "RSA": 
-                    if self.rsaShared_key is not None and self.rsaE is not None and self.rsaPrivate_key is not None :
-                        print("Aled je cé pa koa fèr")
-                        #Faire l'encryption RSA mais je comprend pas les paramètres
-
-                    else:
-                        self.addChatField("Error: Wrong RSA data. Have you generated RSA keys?")
-                        raise ValueError
-                
-                case "DiffieHellman": 
-                    print("wasd")
-                case "Hashing": 
-                    print("wasd")
-            if self.servOnly.isChecked():
-                self.connection.send_message(msgEncr, 's')
-                print("wasd")
-            else:  
-                self.connection.send_message(msgEncr)
-                print("wasd")
+        if text:                              
+            self.connection.send_message(text)
             self.addChatField(text, True)
             self.chatText.clear()
         else:
@@ -193,32 +162,32 @@ class MainWindow(QMainWindow):
     def btnSendTaskVegenere(self):
         key_len = 0
         try:
-            key_len = int(self.shiftkeyText.toPlainText())
+            key_len = int(self.vgnrkeyText.toPlainText())
             if (key_len > 0):
                 #Commande: 
-                self.parser._cmd_send(["-s", "task", "vegenere", "encode", f"{key_len}"]) # Pass cli cmd args
+                print(key_len)
+                self.parser._cmd_send(["-s", "task", "vigenere", "encode", f"{key_len}"]) # Pass cli cmd args
                 self.btnSendVgnr.setEnabled(False)
                 self.vgnrkeyText.setEnabled(False)                
                 self.btnSendVgnred.setEnabled(True)
                 self.vgnredKey.setEnabled(True)
-                self.vgnredMsgText.setEnabled(True)
 
             else:
                 raise ValueError
         except ValueError:
-            self.addChatField("Error: Wrong Shift key length !")
-        self.shiftkeyText.setPlainText("")
+            self.addChatField("Error: Wrong Vegenere msg length !")
+        self.vgnrkeyText.setPlainText("")
 
     
     def btnSendVegeneredMsg(self):
-        key = 0
+        key = ""
         try:
-            key = int(self.vgnredKey.toPlainText())
+            key = self.vgnredKey.toPlainText()
             msg = self.vgnredMsgText.toPlainText()
-            if (key > 0 and msg is not None):
+            if (key is not None and msg is not None):
                 #Commande: 
-                encoded = self.connection.message_handler.encode_vigenere(msg, key)
-                self.connection.send_message(encoded, "s")
+                self.parser._cmd_encode(["vigenere", f"{key}"])
+                self.parser._cmd_send(["-s", "encoded"])
                 self.btnSendVgnr.setEnabled(False)
                 self.btnSend.setEnabled(True)
                 self.vgnrkeyText.setEnabled(False)
@@ -229,27 +198,41 @@ class MainWindow(QMainWindow):
             self.addChatField("Error: Wrong Shift key length !")
         except:
             self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
-        self.shiftkeyText.setPlainText("")
-
-    def btnSendTaskRSA(self):
-        ...
-
+        self.vgnredKey.setPlainText("")
     
     # Button to generate RSA keys event
-    def btnGenRSAKey(self):
-        size = int(self.rsaKeyLen.toPlainText())
-        
-        if self.size is not None:
-            if  size < 2048:
-                self.addChatField("Error: RSA key length too small (< 2048)")
-                raise ValueError
-            else:
-                self.rsaShared_key, self.rsaE, self.rsaPrivate_key = self.connection.message_handler.rsa_keygen(size)
-                self.btnRSATask.setEnabled(True)
-        else:
-            self.addChatField("Error: Wrong RSA key length value")
-            raise ValueError
+    def btnSendTaskRSA(self):
+        key_len = 0
+        try:
+            key_len = int(self.rsaMsgLen.toPlainText())
+            if (key_len > 0):
+                #Commande: 
+                self.parser._cmd_send(["-s", "task", "RSA", "encode", f"{key_len}"]) # Pass cli cmd args
+                self.rsaMsgLen.setEnabled(False)
+                self.btnRSATask.setEnabled(False)                
+                self.btnRSAEncoding.setEnabled(True)
 
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong RSA msg length value !")
+        self.rsaMsgLen.setPlainText("")
+    
+    def btnSendRSAEncoding(self):
+        try:
+            #Commande: 
+            self.parser._cmd_encode(["rsa"]) # Pass cli cmd args
+            self.parser._cmd_send(["-s", "encoded"]) # Pass cli cmd args
+            self.btnRSAEncoding.setEnabled(False)
+            self.rsaMsgLen.setEnabled(True)
+            self.btnRSATask.setEnabled(True)
+        except:
+            self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
+
+    def btnSendHashEncoding(self):
+        self.parser._cmd_send(["-s", "task", "hash", "hash"])
+        self.parser._cmd_hash()
+        self.parser._cmd_send(["-s", "encoded"])
 
     # Selecting encondig method event
     def cmbChangedSelected(self):
@@ -320,10 +303,10 @@ class MainWindow(QMainWindow):
                 vgnrlayout = QHBoxLayout()
 
                 # Field for the private key
-                keyLabel = QLabel("Key length : ")
-                keyLabel.setMaximumWidth(50)
+                keyLabel = QLabel("Msg length : ")
+                keyLabel.setMaximumWidth(60)
                 
-                self.vgnrkeyText = QTextEdit(placeholderText="Keys length")
+                self.vgnrkeyText = QTextEdit(placeholderText="Msg length")
                 self.vgnrkeyText.setMaximumHeight(30)
 
                 # Field for the private key
@@ -352,13 +335,13 @@ class MainWindow(QMainWindow):
                 vgnrlayout.addWidget(self.vgnredKey)
 
                 self.btnSendVgnred = QPushButton("Encode and Send")
-                self.btnSendVgnred.clicked.connect(self.btnSendShiftedMsg)
+                self.btnSendVgnred.clicked.connect(self.btnSendVegeneredMsg)
                 self.btnSendVgnred.setEnabled(False)
                
 
                 # Button to generate RSA keys
                 self.btnSendVgnr = QPushButton("Send Task")
-                self.btnSendVgnr.clicked.connect(self.btnSendTaskShift)
+                self.btnSendVgnr.clicked.connect(self.btnSendTaskVegenere)
 
                 self.vegenereLayout.addLayout(keyLayout)
                 self.vegenereLayout.addWidget(self.btnSendVgnr)
@@ -372,34 +355,41 @@ class MainWindow(QMainWindow):
                 privateLayout = QHBoxLayout()
 
                 # Field for the private key
-                privateLabel = QLabel("Keys Length : ")
+                privateLabel = QLabel("Msg Length : ")
                 privateLabel.setFixedWidth(70)
                 
-                self.rsaKeyLen = QTextEdit(placeholderText="Keys length")
-                self.rsaKeyLen.setMaximumHeight(30)
+                self.rsaMsgLen = QTextEdit(placeholderText="Msg length")
+                self.rsaMsgLen.setMaximumHeight(30)
 
                 privateLayout.addWidget(privateLabel)
-                privateLayout.addWidget(self.rsaKeyLen)
+                privateLayout.addWidget(self.rsaMsgLen)
                
 
                 # Button to generate RSA keys
-                self.btnGenerateRSA = QPushButton("Send Task")
-                self.btnGenerateRSA.clicked.connect(self.btnGenRSAKey)
+                self.btnRSATask = QPushButton("Send Task")
+                self.btnRSATask.clicked.connect(self.btnSendTaskRSA)
 
                 
-                # Button to send RSA task
-                self.btnRSATask = QPushButton("Generate")
-                self.btnRSATask.clicked.connect(self.btnSendTaskRSA)
-                self.btnRSATask.setEnabled(False)
+                self.btnRSAEncoding = QPushButton("Encode and Send")
+                self.btnRSAEncoding.clicked.connect(self.btnSendRSAEncoding)
+                self.btnRSAEncoding.setEnabled(False)
 
                 self.rsaLayout.addLayout(privateLayout)
-                self.rsaLayout.addWidget(self.btnGenerateRSA)
                 self.rsaLayout.addWidget(self.btnRSATask)
+                self.rsaLayout.addWidget(self.btnRSAEncoding)
                 self.settingsDynamicLayout.addLayout(self.rsaLayout)
             case "DiffieHellman": 
                 print("DiffieHellman")
             case "Hashing": 
-                print("Hashing")
+                # Create layout for hash encoding
+                self.hashLayout = QVBoxLayout()               
+
+                # Button to verify Hash 
+                self.btnHashTask = QPushButton("Verify Hash Task")
+                self.btnHashTask.clicked.connect(self.btnSendHashEncoding)
+
+                self.hashLayout.addWidget(self.btnHashTask)
+                self.settingsDynamicLayout.addLayout(self.hashLayout)
         
         self.btnSend.setEnabled(False)
 
@@ -424,7 +414,7 @@ class MainWindow(QMainWindow):
         label.setFixedWidth(300)
         label.setMinimumHeight(30)
         label.setMargin(10)
-        label.setFont(self.fontNew)
+        label.setFont(QFont("Arial", 10))
         label.setWordWrap(True)   
         label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)     
 
@@ -445,24 +435,9 @@ class MainWindow(QMainWindow):
                 if self.parser.plain_buffer is not None or self.parser.plain_buffer is not "":
                     self.shiftedMsgText.setPlainText(self.parser.plain_buffer)
             case "Vegenere": 
-                vgnrKey = self.shiftkeyText.toPlainText()
-                if vgnrKey is not None:
-                    msgEncr = self.connection.message_handler.encode_vigenere(vgnrKey)
-                else:
-                    self.addChatField("Error: Wrong Vegenere Key value")
-                    raise ValueError
-            case "RSA": 
-                if self.rsaShared_key is not None and self.rsaE is not None and self.rsaPrivate_key is not None :
-                    print("Aled je cé pa koa fèr")
-                    #Faire l'encryption RSA mais je comprend pas les paramètres
-
-                else:
-                    self.addChatField("Error: Wrong RSA data. Have you generated RSA keys?")
-                    raise ValueError
-            
+                if self.parser.plain_buffer is not None or self.parser.plain_buffer is not "":
+                    self.vgnredMsgText.setPlainText(self.parser.plain_buffer)
             case "DiffieHellman": 
-                print("wasd")
-            case "Hashing": 
                 print("wasd")
         self.addChatField(message)
 
