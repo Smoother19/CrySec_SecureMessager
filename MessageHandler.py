@@ -1,38 +1,34 @@
+import hashlib
+
 from Frame import Frame
 from sympy import randprime
 import math
+    
 
 
 class MessageHandler():
     def __init__(self, header='ISC'):
         self.frame = Frame(header)
-    
-    '''
-    def parse_server_task(self, message):
-        """ Analyse le message pour voir si c'est une tâche (insensible à la casse) """
-        msg_lower = message.lower()
-        
-        # On vérifie si c'est la phrase typique d'une tâche d'encodage
-        if "encode the text" in msg_lower:
-            mots = message.split() # On split le message original pour garder la casse de la clé
-            
-            if "shift-key" in msg_lower:
-                try:
-                    return ("shift", int(mots[-1]))
-                except ValueError:
-                    pass
-            elif "vigenere key" in msg_lower:
-                # Retourne 'vigenere' et le dernier mot (la clé)
-                return ("vigenere", mots[-1])
-                
-        return None
-        '''
 
     def encode_message(self, cmd, message):
-
         cmd_bytes = cmd.encode('ascii')
-        length_bytes = len(message).to_bytes(2, 'big')
-        message_bytes = message.encode('utf-32-be')
+        
+        if isinstance(message, list):
+            length_bytes = len(message).to_bytes(2, 'big')
+            
+            byte_array = bytearray()
+            for c in message:
+                byte_array.extend(c.to_bytes(4, byteorder="big"))
+                
+            message_bytes = bytes(byte_array)
+            
+        elif isinstance(message, bytes):
+            length_bytes = len(message).to_bytes(2, 'big')
+            message_bytes = message
+
+        else:
+            length_bytes = len(message).to_bytes(2, 'big')
+            message_bytes = message.encode('utf-32-be')
         
         packed = self.frame.pack(cmd_bytes, length_bytes, message_bytes)
 
@@ -46,15 +42,12 @@ class MessageHandler():
         length = unpacked[2]
         message_bytes = unpacked[3]
 
+        self._last_raw_bytes = message_bytes
+
         message = message_bytes.decode('utf-32-be', errors='replace')
 
         return (header, cmd, length, message)
-    
-    def encrypt(self, message):
-        return message
-    
-    def decrypt(self, message):
-        return message
+
     
     def encode_shift(self, message, shift):
         result = ''
@@ -104,44 +97,74 @@ class MessageHandler():
         return result
     
     def rsa_keygen(self, key_size):
-        min_val = 2**(key_size // 2 - 1)
-        max_val = 2**(key_size // 2)
+        if key_size <= 4:
+            raise ValueError("Key size must be greater than 4 bits.")
 
-        p = randprime()(min_val, max_val)
-        q = randprime()(min_val, max_val)
+        half_key_size = key_size // 2
+        min_val = 2 ** (half_key_size - 2)
+        max_val = 2 ** half_key_size
+
+        p = randprime(min_val, max_val)
+        q = randprime(min_val, max_val)
 
         while p == q:
-            q = randprime()(min_val, max_val)
+            q = randprime(min_val, max_val)
 
-        shared_key = p * q
+        n = p * q
         phi = (p - 1) * (q - 1)
-        e = 65537 # Convention
+        e = randprime(3, phi)
 
-        while math.gcd(e, phi) != 1:
-            return self.rsa_keygen(key_size)
+        while e <= 1 or e >= phi or math.gcd(e, phi) != 1:
+            e = randprime(3, phi)
 
-        private_key = pow(e, -1, phi)
-        
-        return (shared_key, e, private_key)
+        d = pow(e, -1, phi)
+
+        return (n, e, d)
 
     def rsa_encrypt(self, message, n, e):
         '''Encode the message using RSA encryption with the given public key (n, e)'''
-
-        message_int = int.from_bytes(message.encode('utf-32-be'), 'big')
-        cipher_int = pow(message_int, e, n)
-        byte_length = (n.bit_length() + 7) // 8
+        result = []
         
-        return cipher_int.to_bytes(byte_length, 'big')
+        use_raw = hasattr(self, '_last_raw_bytes') and len(self._last_raw_bytes) == len(message) * 4
+
+        for i in range(len(message)):
+            if use_raw:
+                chunk = self._last_raw_bytes[i*4 : i*4+4]
+                val = int.from_bytes(chunk, byteorder='big')
+            else:
+                val = ord(message[i])
+                
+            c = pow(val, e, n)
+            result.append(c)
+            
+        return result
     
     def rsa_decrypt(self, cipher_bytes, n, d):
         '''Decode the message using RSA decryption with the given private key (n, d)'''
+        result = ""
+        bytes_per_char = (n.bit_length() + 7) // 8
 
-        cipher_int = int.from_bytes(cipher_bytes, 'big')
-        message_int = pow(cipher_int, d, n)
-        byte_length = (message_int.bit_length() + 7) // 8
-        message_bytes = message_int.to_bytes(byte_length, 'big')
+        for i in range(0, len(cipher_bytes), bytes_per_char):
+            chunk = int.from_bytes(cipher_bytes[i : i + bytes_per_char], byteorder="big")
+            result += chr(pow(chunk, d, n))
 
-        return message_bytes.decode('utf-32-be', errors='replace')
+        return result
+    
+    def diffie_hellman_keygen(self):
+        import secrets
+        from sympy import primitive_root
+        
+        p = randprime(1000, 5000)
+        g = primitive_root(p)
+        a = secrets.randbelow(p - 2) + 2
+
+        A = pow(g, a, p)
+
+        return p, g, a, A
+    
+    def diffie_hellman_shared_key(self, B, a, p):
+        secret = pow(B, a, p)
+        return secret
 
     def parse_server_task(self, message):
         """
@@ -152,16 +175,30 @@ class MessageHandler():
             words = message.split()
             if "shift-key" in message:
                 try:
-                    # The key is the last word
                     key = int(words[-1])
                     return ("shift", key)
                 except (ValueError, IndexError):
                     return None
             elif "vigenere-key" in message:
                 try:
-                    # The key is the last word
                     key = words[-1]
                     return ("vigenere", key)
                 except IndexError:
                     return None
         return None
+    
+    def sha256_hash(self, message):
+        cleaned_message = ""
+        for char in message:
+            val = ord(char)
+            if val > 255:
+                try:
+                    byte_len = (val.bit_length() + 7) // 8
+                    raw_utf8 = val.to_bytes(byte_len, byteorder='little')
+                    cleaned_message += raw_utf8.decode('utf-8')
+                except Exception:
+                    cleaned_message += char
+            else:
+                cleaned_message += char
+
+        return hashlib.sha256(cleaned_message.encode('utf-8')).hexdigest()

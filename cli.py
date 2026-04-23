@@ -1,4 +1,4 @@
-import sys, os, math
+import sys, os, math, re
 from MessageHandler import MessageHandler
 
 
@@ -12,7 +12,15 @@ class cli_parser:
         self.auto_task_key = None
         self.auto_task_algo = None
 
-        # Link the CLI to the ConnectionHandler for automated task handling
+        self.rsa_pub = None
+        self.rsa_priv = None
+        
+        self.dh_p = None
+        self.dh_a = None
+        
+        self.rsa_pub = None
+        self.rsa_priv = None
+
         self.connection.set_callback(self.handle_server_message)
         
         self.commands = {
@@ -34,11 +42,11 @@ class cli_parser:
             },
             '/encode': {
                 'action': self._cmd_encode,
-                'desc': "<algo> <clé> : Encode 'plain' vers 'encoded'. Algos: shift, vigenere."
+                'desc': "<algo> <clé> : Encode 'plain' vers 'encoded'. Algos: shift, vigenere, rsa [n e]."
             },
             '/decode': {
                 'action': self._cmd_decode,
-                'desc': "<algo> <clé> : Décode 'encoded' vers 'plain'. Algos: shift, vigenere."
+                'desc': "<algo> <clé> : Décode 'encoded' vers 'plain'. Algos: shift, vigenere, rsa [n d]."
             },
             '/send': {
                 'action': self._cmd_send,
@@ -48,33 +56,50 @@ class cli_parser:
                 'action': self._cmd_quit, 
                 'desc': "Quitte l'application."
             },
-            # '/rsa': {
-            #     'action': self._cmd_rsa,
-            #     'desc': "<key_size> : Génère une paire de clés RSA avec la taille spécifiée."
-            # }
+            '/rsa': {
+                'action': self._cmd_rsa,
+                'desc': "<key_size> : Génère une paire de clés RSA avec la taille spécifiée."
+            },
+            '/dh_gen': {
+                'action': self._cmd_dh_gen,
+                'desc': "Génère les paramètres Diffie-Hellman (p, g, a, A)."
+            },
+            '/dh_sec': {
+                'action': self._cmd_dh_sec,
+                'desc': "<B> : Calcule le secret partagé avec la clé publique (B) du serveur."
+            },
+            '/hash': {
+                'action': self._cmd_hash,
+                'desc': "[texte] : Hache le texte (ou le buffer 'plain') avec SHA-256 vers 'encoded'."
+            }
         }
 
     def handle_server_message(self, message):
-        # Astuce pour nettoyer la console et éviter les ">>"
         efface = "\r" + " " * 70 + "\r"
         
-        # --- 1. CAS OÙ ON ATTEND LE MOT À CHIFFRER ---
         if getattr(self, 'waiting_for_task', False):
             self.plain_buffer = message
             self.waiting_for_task = False
-            print(f"{efface}[+] Le mot a été récupéré dans le buffer 'Plain' : {message}")
-            print(f"[+] CMD pour envoyer le message : /encode {self.auto_task_algo} {self.auto_task_key}")
+            print(f"{efface}[+] Le mot a été récupéré dans le buffer 'Plain' : '{message}'")
+            
+            if self.auto_task_algo == "rsa":
+                print(f"[+] CMD pour envoyer le message : /encode rsa")
+            elif self.auto_task_algo == "hash":
+                print(f"[+] CMD pour envoyer le message : /hash")
+            else:
+                print(f"[+] CMD pour envoyer le message : /encode {self.auto_task_algo} {self.auto_task_key}")
+                
             print("> ", end="", flush=True)
             return
 
-        # --- 2. CAS OÙ ON DÉTECTE UNE INSTRUCTION DE TÂCHE ---
         msg_lower = message.lower()
-        if "encode the text" in msg_lower:
-            mots = message.split() # On découpe la phrase
+        
+        if "encode the text" in msg_lower or "hash" in msg_lower:
+            mots = message.split()
             
             if "shift-key" in msg_lower:
                 self.auto_task_algo = "shift"
-                self.auto_task_key = mots[-1] # Le dernier mot est la clé
+                self.auto_task_key = mots[-1]
                 self.waiting_for_task = True
                 print(f"{efface}[!] Tâche Shift détectée (Clé: {self.auto_task_key})")
                 print("> ", end="", flush=True)
@@ -82,15 +107,38 @@ class cli_parser:
                 
             elif "vigenere key" in msg_lower:
                 self.auto_task_algo = "vigenere"
-                self.auto_task_key = mots[-1] # Le dernier mot est la clé
+                self.auto_task_key = mots[-1]
                 self.waiting_for_task = True
                 print(f"{efface}[!] Tâche Vigenère détectée (Clé: {self.auto_task_key})")
                 print("> ", end="", flush=True)
                 return
 
-        # --- 3. CAS NORMAL (Message classique du serveur) ---
+            elif "hash" in msg_lower and not any(mot in msg_lower for mot in ["correspond", "correct", "invalid", "unknown", "running"]):
+                self.auto_task_algo = "hash"
+                self.waiting_for_task = True
+                print(f"{efface}[!] Tâche Hash SHA-256 détectée")
+                print("> ", end="", flush=True)
+                return
+                
+            else:
+                import re
+                match_n = re.search(r'n\s*[=:]?\s*(\d+)', message, re.IGNORECASE)
+                match_e = re.search(r'e\s*[=:]?\s*(\d+)', message, re.IGNORECASE)
+                
+                if match_n and match_e:
+                    self.auto_task_algo = "rsa"
+                    n = int(match_n.group(1))
+                    e = int(match_e.group(1))
+                    
+                    self.rsa_pub = (n, e)
+                    self.auto_task_key = f"n={n}, e={e}"
+                    self.waiting_for_task = True
+                    
+                    print(f"{efface}[!] Tâche RSA détectée (Clé publique stockée: {self.auto_task_key})")
+                    print("> ", end="", flush=True)
+                    return
+
         print(f"{efface}[Serveur] : {message}")
-        # print("> ", end="", flush=True)
 
     def _cmd_help(self, args):
         print("\n--- Commandes disponibles ---")
@@ -118,7 +166,12 @@ class cli_parser:
     def _cmd_show(self, args):
         print("\n--- Contenu des Buffers ---")
         print(f"Plain   : {self.plain_buffer}")
-        print(f"Encoded : {self.encoded_buffer}")
+        
+        if isinstance(self.encoded_buffer, bytes):
+            print(f"Encoded : {self.encoded_buffer}")
+        else:
+            print(f"Encoded : {self.encoded_buffer}")
+            
         print("---------------------------\n")
 
     def _cmd_clearbuf(self, args):
@@ -135,13 +188,29 @@ class cli_parser:
         else:
             print("Usage: /clearbuf [plain|encoded]")
 
+    def _cmd_rsa(self, args):
+        if not args:
+            print("Usage: /rsa <key_size_en_bits>")
+            return
+        
+        try:
+            key_size = int(args[0])
+            n, e, d = self.message_handler.rsa_keygen(key_size)
+            self.rsa_pub = (n, e)
+            self.rsa_priv = (n, d)
+            
+            print(f"\n--- Clés RSA générées ({key_size} bits) ---")
+            print(f"Clé Publique (n, e) : {n}, {e}")
+            print(f"Clé Privée (n, d)   : {n}, {d}")
+            print("---------------------------------------")
+            
+        except ValueError as e:
+            print(f"Erreur lors de la génération RSA : {e}")
+
     def _cmd_encode(self, args):
-        """
-        Encode le contenu de plain_buffer vers encoded_buffer en utilisant l'algorithme spécifié.
-        """
-        if len(args) < 2:
-            print("Usage: /encode <algorithme> <clé>")
-            print("Algorithmes supportés: shift, vigenere")
+        if len(args) < 1:
+            print("Usage: /encode <algorithme> [clé]")
+            print("Algorithmes supportés: shift, vigenere, rsa")
             return
 
         if not self.plain_buffer:
@@ -149,17 +218,32 @@ class cli_parser:
             return
 
         algo = args[0].lower()
-        key = " ".join(args[1:])
 
         try:
             if algo == 'shift':
-                shift_key = int(key)
+                if len(args) < 2: return print("Erreur: Clé manquante. Usage: /encode shift <clé>")
+                shift_key = int(args[1])
                 self.encoded_buffer = self.message_handler.encode_shift(self.plain_buffer, shift_key)
                 print(f"Buffer 'plain' encodé dans 'encoded' avec l'algorithme a décalage (shift) et la clé '{shift_key}'.")
 
             elif algo == 'vigenere':
+                if len(args) < 2: return print("Erreur: Clé manquante. Usage: /encode vigenere <clé>")
+                key = " ".join(args[1:])
                 self.encoded_buffer = self.message_handler.encode_vigenere(self.plain_buffer, key)
                 print(f"Buffer 'plain' encodé dans 'encoded' avec l'algorithme de Vigenère et la clé '{key}'.")
+
+            elif algo == 'rsa':
+                n, e = None, None
+                if len(args) >= 3:
+                    n, e = int(args[1]), int(args[2])
+                elif self.rsa_pub: 
+                    n, e = self.rsa_pub
+                else:
+                    print("Erreur: Aucune clé RSA disponible. Précisez <n> <e> ou attendez une tâche du serveur.")
+                    return
+
+                self.encoded_buffer = self.message_handler.rsa_encrypt(self.plain_buffer, n, e)
+                print(f"Buffer 'plain' encodé avec RSA (clé publique: n={n}, e={e}).")
 
             else:
                 print(f"Erreur: Algorithme d'encodage '{algo}' non reconnu.")
@@ -168,22 +252,14 @@ class cli_parser:
             self._cmd_show(None)
 
         except ValueError:
-            print(f"Erreur: La clé pour l'algorithme 'shift' doit être un entier (ex: 24).")
-        except AttributeError as e:
-            if 'encode_vigenere' in str(e):
-                print(f"Erreur: La méthode 'encode_vigenere' n'est pas encore implémentée dans MessageHandler.py.")
-            else:
-                print(f"Une erreur est survenue: {e}")
+            print(f"Erreur de typage (La clé doit généralement être un nombre entier selon l'algorithme).")
         except Exception as e:
             print(f"Une erreur est survenue lors de l'encodage: {e}")
 
     def _cmd_decode(self, args):
-        """
-        Décode le contenu de encoded_buffer vers plain_buffer en utilisant l'algorithme spécifié.
-        """
-        if len(args) < 2:
-            print("Usage: /decode <algorithme> <clé>")
-            print("Algorithmes supportés: shift, vigenere")
+        if len(args) < 1:
+            print("Usage: /decode <algorithme> [clé]")
+            print("Algorithmes supportés: shift, vigenere, rsa")
             return
 
         if not self.encoded_buffer:
@@ -191,17 +267,40 @@ class cli_parser:
             return
 
         algo = args[0].lower()
-        key = " ".join(args[1:])
 
         try:
             if algo == 'shift':
-                shift_key = int(key)
+                if len(args) < 2: return print("Erreur: Clé manquante.")
+                shift_key = int(args[1])
                 self.plain_buffer = self.message_handler.decode_shift(self.encoded_buffer, shift_key)
-                print(f"Buffer 'encoded' décodé dans 'plain' avec l'algorithme a décalage (shift) et la clé '{shift_key}'.")
+                print(f"Buffer 'encoded' décodé dans 'plain' avec l'algorithme a décalage (shift).")
 
             elif algo == 'vigenere':
+                if len(args) < 2: return print("Erreur: Clé manquante.")
+                key = " ".join(args[1:])
                 self.plain_buffer = self.message_handler.decode_vigenere(self.encoded_buffer, key)
-                print(f"Buffer 'encoded' décodé dans 'plain' avec l'algorithme de Vigenère et la clé '{key}'.")
+                print(f"Buffer 'encoded' décodé dans 'plain' avec Vigenère.")
+
+            elif algo == 'rsa':
+                n, d = None, None
+                if len(args) >= 3:
+                    n, d = int(args[1]), int(args[2])
+                elif self.rsa_priv:
+                    n, d = self.rsa_priv
+                else:
+                    print("Erreur: Aucune clé RSA privée disponible. Précisez <n> <d> ou générez avec /rsa.")
+                    return
+
+                buffer_bytes = self.encoded_buffer
+                if isinstance(buffer_bytes, str):
+                    try:
+                        buffer_bytes = bytes.fromhex(buffer_bytes)
+                    except ValueError:
+                        print("Erreur: Pour décoder RSA depuis une chaîne, le buffer 'encoded' doit être en hexadécimal.")
+                        return
+
+                self.plain_buffer = self.message_handler.rsa_decrypt(buffer_bytes, n, d)
+                print(f"Buffer 'encoded' décodé avec RSA (clé privée: n={n}, d={d}).")
 
             else:
                 print(f"Erreur: Algorithme de décodage '{algo}' non reconnu.")
@@ -209,13 +308,6 @@ class cli_parser:
                 
             self._cmd_show(None)
 
-        except ValueError:
-            print(f"Erreur: La clé pour l'algorithme 'shift' doit être un entier (ex: 24).")
-        except AttributeError as e:
-            if 'decode_vigenere' in str(e):
-                 print(f"Erreur: La méthode 'decode_vigenere' n'est pas encore implémentée dans MessageHandler.py.")
-            else:
-                print(f"Une erreur est survenue: {e}")
         except Exception as e:
             print(f"Une erreur est survenue lors du décodage: {e}")
 
@@ -252,7 +344,7 @@ class cli_parser:
 
         try:
             self.connection.send_message(message_to_send, msg_type)
-            print(f"Message envoyé (type: {msg_type}): '{message_to_send}'")
+            print(f"Message envoyé (type: {msg_type}).")
         except Exception as e:
             print(f"Erreur lors de l'envoi du message: {e}")       
 
@@ -287,3 +379,71 @@ class cli_parser:
         else:
             full_message = cmd + " " + " ".join(args) if args else cmd
             self.connection.send_message(full_message, 't')
+
+    def _cmd_dh_gen(self, args):
+        try:
+            p, g, a, A = self.message_handler.diffie_hellman_keygen()
+            self.dh_p = p
+            self.dh_a = a
+            
+            print(f"\n--- Paramètres Diffie-Hellman générés ---")
+            print(f"Modulus (p)     : {p}")
+            print(f"Générateur (g)  : {g}")
+            print(f"Clé privée (a)  : {a}")
+            print(f"Clé publique (A): {A}")
+            print("-----------------------------------------")
+            print(f"[!] ÉTAPE 1 : Envoyez p et g au serveur avec la commande :")
+            print(f"> /send -s {p},{g}")
+            print(f"[!] ÉTAPE 2 : Plus tard, envoyez votre clé publique avec :")
+            print(f"> /send -s {A}")
+        except Exception as e:
+            print(f"Erreur lors de la génération : {e}")
+
+    def _cmd_dh_sec(self, args):
+        if not args:
+            print("Usage: /dh_sec <clé_publique_du_serveur_B>")
+            return
+            
+        if not self.dh_p or not self.dh_a:
+            print("Erreur: Vous devez d'abord générer les paramètres avec /dh_gen.")
+            return
+
+        try:
+            B = int(args[0])
+            secret = self.message_handler.diffie_hellman_shared_key(B, self.dh_a, self.dh_p)
+            
+            print(f"\n--- Secret Diffie-Hellman ---")
+            print(f"Secret partagé calculé : {secret}")
+            print("-----------------------------")
+            print(f"[!] ÉTAPE 3 : Envoyez ce secret au serveur avec la commande :")
+            print(f"> /send -s {secret}")
+            
+        except ValueError:
+            print("Erreur: La clé publique du serveur doit être un nombre entier.")
+        except Exception as e:
+            print(f"Erreur lors du calcul du secret : {e}")
+
+    def _cmd_hash(self, args):
+        if args:
+            text_to_hash = " ".join(args)
+        elif getattr(self, 'waiting_for_task', False) or self.plain_buffer:
+            text_to_hash = self.plain_buffer
+            self.waiting_for_task = False
+        else:
+            print("Erreur: Spécifiez un texte (/hash <texte>) ou remplissez le buffer 'plain'.")
+            return
+
+        try:
+            hashed_result = self.message_handler.sha256_hash(text_to_hash)
+            
+            self.encoded_buffer = hashed_result
+            
+            print(f"\n--- Hachage SHA-256 ---")
+            print(f"Texte original : {text_to_hash}")
+            print(f"Hash (Hex)     : {hashed_result}")
+            print("-----------------------")
+            print(f"[+] Le hash a été sauvegardé dans le buffer 'Encoded'.")
+            print(f"> Tapez '/send -s encoded' pour l'envoyer au serveur.")
+            
+        except Exception as e:
+            print(f"Erreur lors du hachage : {e}")

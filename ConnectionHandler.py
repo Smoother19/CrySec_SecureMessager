@@ -64,7 +64,6 @@ class ConnectionHandler:
                 length = int.from_bytes(header_data[4:6], 'big')
                 payload_size = length * 4
                 
-                # Assurer que nous lisons un nombre d'octets multiple de 4 pour éviter les problèmes de décodage
                 payload_data = b''
                 if payload_size > 0:
                     payload_data = self._recvall(payload_size)

@@ -8,7 +8,7 @@ import threading
 from MessageTransferer import *
 from ConnectionHandler import *
 from MessageHandler import *
-'''
+
 try:
     connection = ConnectionHandler()
 except Exception as e:
@@ -36,3 +36,4 @@ app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
 sys.exit(app.exec())
+'''
