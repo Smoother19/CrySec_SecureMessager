@@ -161,7 +161,6 @@ class MainWindow(QMainWindow):
                 self.shiftkeyText.setEnabled(False)                
                 self.btnSendShifted.setEnabled(True)
                 self.shiftedKey.setEnabled(True)
-                self.shiftedMsgText.setEnabled(True)
 
             else:
                 raise ValueError
@@ -267,10 +266,10 @@ class MainWindow(QMainWindow):
                 shftlayout = QHBoxLayout()
 
                 # Field for the private key
-                keyLabel = QLabel("Key length : ")
-                keyLabel.setMaximumWidth(50)
+                keyLabel = QLabel("Msg length : ")
+                keyLabel.setMaximumWidth(60)
                 
-                self.shiftkeyText = QTextEdit(placeholderText="Keys length")
+                self.shiftkeyText = QTextEdit(placeholderText="Msg length")
                 self.shiftkeyText.setMaximumHeight(30)
 
                 # Field for the private key
@@ -440,6 +439,31 @@ class MainWindow(QMainWindow):
     
     def handleServerReceptionToWindw(self, message):
         self.parser.handle_server_message(message)
+        # print("Wasd: ", self.parser.plain_buffer)
+        match self.encoding.currentText():
+            case "Shift": 
+                if self.parser.plain_buffer is not None or self.parser.plain_buffer is not "":
+                    self.shiftedMsgText.setPlainText(self.parser.plain_buffer)
+            case "Vegenere": 
+                vgnrKey = self.shiftkeyText.toPlainText()
+                if vgnrKey is not None:
+                    msgEncr = self.connection.message_handler.encode_vigenere(vgnrKey)
+                else:
+                    self.addChatField("Error: Wrong Vegenere Key value")
+                    raise ValueError
+            case "RSA": 
+                if self.rsaShared_key is not None and self.rsaE is not None and self.rsaPrivate_key is not None :
+                    print("Aled je cé pa koa fèr")
+                    #Faire l'encryption RSA mais je comprend pas les paramètres
+
+                else:
+                    self.addChatField("Error: Wrong RSA data. Have you generated RSA keys?")
+                    raise ValueError
+            
+            case "DiffieHellman": 
+                print("wasd")
+            case "Hashing": 
+                print("wasd")
         self.addChatField(message)
 
     def startConnection(self):
