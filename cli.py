@@ -17,6 +17,9 @@ class cli_parser:
         
         self.dh_p = None
         self.dh_a = None
+        self.dh_g = None
+        self.dh_A = None
+        self.dh_secret = None
         
         self.rsa_pub = None
         self.rsa_priv = None
@@ -385,6 +388,8 @@ class cli_parser:
             p, g, a, A = self.message_handler.diffie_hellman_keygen()
             self.dh_p = p
             self.dh_a = a
+            self.dh_g = g
+            self.dh_A = A
             
             print(f"\n--- Paramètres Diffie-Hellman générés ---")
             print(f"Modulus (p)     : {p}")
@@ -410,13 +415,13 @@ class cli_parser:
 
         try:
             B = int(args[0])
-            secret = self.message_handler.diffie_hellman_shared_key(B, self.dh_a, self.dh_p)
+            self.dh_secret = self.message_handler.diffie_hellman_shared_key(B, self.dh_a, self.dh_p)
             
             print(f"\n--- Secret Diffie-Hellman ---")
-            print(f"Secret partagé calculé : {secret}")
+            print(f"Secret partagé calculé : {self.dh_secret}")
             print("-----------------------------")
             print(f"[!] ÉTAPE 3 : Envoyez ce secret au serveur avec la commande :")
-            print(f"> /send -s {secret}")
+            print(f"> /send -s {self.dh_secret}")
             
         except ValueError:
             print("Erreur: La clé publique du serveur doit être un nombre entier.")

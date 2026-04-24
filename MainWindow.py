@@ -4,6 +4,8 @@ from PySide6.QtGui import QFont
 
 
 import threading
+import time
+
 from MessageTransferer import *
 from ConnectionHandler import *
 from MessageHandler import *
@@ -48,9 +50,11 @@ class MainWindow(QMainWindow):
         # Send message to server textbox
         sendChat = QHBoxLayout()
         self.chatText = QTextEdit(placeholderText="Send a message")
+        self.chatText.setEnabled(False)
         self.chatText.setMaximumHeight(30)
         self.btnSend = QPushButton("Send")
         self.btnSend.clicked.connect(self.btnSendMsg)
+        self.btnSend.setEnabled(False)
 
         sendChat.addWidget(self.chatText)
         sendChat.addWidget(self.btnSend)
@@ -58,6 +62,7 @@ class MainWindow(QMainWindow):
         # Checkbox for Serv only (Task)
         self.servOnly = QCheckBox("Send to serv ONLY")
         self.servOnly.stateChanged.connect(self.checkOnlyServ)
+        self.servOnly.setChecked(True)
 
         # CHoosing encoding method
         encodeLayout = QHBoxLayout()
@@ -229,10 +234,44 @@ class MainWindow(QMainWindow):
         except:
             self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
 
+    def btnSendDifHelTask(self):
+        self.parser._cmd_send(["-s", "task", "DifHel"])  
+        self.parser._cmd_dh_gen([])      
+        self.parser._cmd_send(["-s", f"{self.parser.dh_p},{self.parser.dh_g}"])         
+        self.btnDifHelTask.setEnabled(False)  
+        self.btnDifHelGenerate.setEnabled(True)              
+        self.difHelPubKeyText.setEnabled(True)
+        
+
+    def btnSendDifHelGenModulo(self):     
+        key = 0
+        try:
+            key = int(self.difHelPubKeyText.toPlainText())
+            if (key > 0):
+                #Commande: 
+                self.parser._cmd_send(["-s", f"{self.parser.dh_A}"])
+                self.parser._cmd_dh_sec([key])
+                self.parser._cmd_send(["-s", f"{self.parser.dh_secret}"])
+            
+                self.btnDifHelTask.setEnabled(True)  
+                self.btnDifHelGenerate.setEnabled(False)              
+                self.difHelPubKeyText.setEnabled(False)
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key length !")
+        self.difHelPubKeyText.setPlainText("")
+
     def btnSendHashEncoding(self):
         self.parser._cmd_send(["-s", "task", "hash", "hash"])
-        self.parser._cmd_hash()
+        self.btnHashTask.setEnabled(False)
+        self.btnHashVerify.setEnabled(True)
+
+    def btnSendHashVerify(self):
+        self.parser._cmd_hash([])
         self.parser._cmd_send(["-s", "encoded"])
+        self.btnHashTask.setEnabled(True)
+        self.btnHashVerify.setEnabled(False)
 
     # Selecting encondig method event
     def cmbChangedSelected(self):
@@ -379,16 +418,49 @@ class MainWindow(QMainWindow):
                 self.rsaLayout.addWidget(self.btnRSAEncoding)
                 self.settingsDynamicLayout.addLayout(self.rsaLayout)
             case "DiffieHellman": 
-                print("DiffieHellman")
+                self.difHelLayout = QVBoxLayout() 
+                difHelPubKeyLayout = QHBoxLayout()              
+
+                # Button to send Hash task 
+                self.btnDifHelTask = QPushButton("Send Task")
+                self.btnDifHelTask.clicked.connect(self.btnSendDifHelTask)                
+                self.btnDifHelTask.setEnabled(True)  
+                
+                # Button to verify Hash  
+                self.btnDifHelGenerate = QPushButton("Send Half-Key and Verify")
+                self.btnDifHelGenerate.clicked.connect(self.btnSendDifHelGenModulo)
+                self.btnDifHelGenerate.setEnabled(False)              
+
+                # Field for the private key
+                keyLabel = QLabel("Half-Key : ")
+                keyLabel.setMaximumWidth(60)
+                
+                self.difHelPubKeyText = QTextEdit(placeholderText="Half-Key")
+                self.difHelPubKeyText.setMaximumHeight(30)                
+                self.difHelPubKeyText.setEnabled(False)
+
+                difHelPubKeyLayout.addWidget(keyLabel)
+                difHelPubKeyLayout.addWidget(self.difHelPubKeyText)
+
+                self.difHelLayout.addWidget(self.btnDifHelTask)
+                self.difHelLayout.addLayout(difHelPubKeyLayout)
+                self.difHelLayout.addWidget(self.btnDifHelGenerate)
+                self.settingsDynamicLayout.addLayout(self.difHelLayout)
             case "Hashing": 
                 # Create layout for hash encoding
                 self.hashLayout = QVBoxLayout()               
 
-                # Button to verify Hash 
-                self.btnHashTask = QPushButton("Verify Hash Task")
+                # Button to send Hash task 
+                self.btnHashTask = QPushButton("Send Task")
                 self.btnHashTask.clicked.connect(self.btnSendHashEncoding)
+                
+                # Button to verify Hash  
+                self.btnHashVerify = QPushButton("Verify Hash")
+                self.btnHashVerify.clicked.connect(self.btnSendHashVerify)
+                self.btnHashVerify.setEnabled(False)
 
                 self.hashLayout.addWidget(self.btnHashTask)
+                self.hashLayout.addWidget(self.btnHashVerify)
                 self.settingsDynamicLayout.addLayout(self.hashLayout)
         
         self.btnSend.setEnabled(False)
@@ -397,6 +469,12 @@ class MainWindow(QMainWindow):
     def checkOnlyServ(self):
         self.chatText.setEnabled(not self.servOnly.isChecked())
         self.btnSend.setEnabled(not self.servOnly.isChecked())
+        self.encoding.setEnabled(self.servOnly.isChecked())
+        if not self.servOnly.isChecked():
+            self.clearLayout(self.settingsDynamicLayout)
+        else:
+            self.cmbChangedSelected()
+        
         
     # CLears a layout of it's wigets AND layouts
     def clearLayout(self, layout:QLayout):
@@ -430,15 +508,17 @@ class MainWindow(QMainWindow):
     def handleServerReceptionToWindw(self, message):
         self.parser.handle_server_message(message)
         # print("Wasd: ", self.parser.plain_buffer)
-        match self.encoding.currentText():
-            case "Shift": 
-                if self.parser.plain_buffer is not None or self.parser.plain_buffer is not "":
-                    self.shiftedMsgText.setPlainText(self.parser.plain_buffer)
-            case "Vegenere": 
-                if self.parser.plain_buffer is not None or self.parser.plain_buffer is not "":
-                    self.vgnredMsgText.setPlainText(self.parser.plain_buffer)
-            case "DiffieHellman": 
-                print("wasd")
+        if self.servOnly.isChecked():
+            match self.encoding.currentText():
+                case "Shift": 
+                    if self.parser.plain_buffer is not None or self.parser.plain_buffer != "":
+                        self.shiftedMsgText.setPlainText(self.parser.plain_buffer)
+                case "Vegenere": 
+                    if self.parser.plain_buffer is not None or self.parser.plain_buffer != "":
+                        self.vgnredMsgText.setPlainText(self.parser.plain_buffer)
+                case "DiffieHellman": 
+                    if self.parser.plain_buffer is not None or self.parser.plain_buffer != "":
+                        self.difHelPubKeyText.setPlainText(self.parser.plain_buffer)
         self.addChatField(message)
 
     def startConnection(self):
