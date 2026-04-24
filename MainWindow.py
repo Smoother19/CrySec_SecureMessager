@@ -17,6 +17,8 @@ class MainWindow(QMainWindow):
         
         
         self.win = QWidget()
+        
+        self.isEncoding = True
 
         # window settings
         self.win.setWindowTitle("CRYSEC - Secure Messager")
@@ -64,6 +66,8 @@ class MainWindow(QMainWindow):
         self.servOnly.stateChanged.connect(self.checkOnlyServ)
         self.servOnly.setChecked(True)
 
+        
+
         # CHoosing encoding method
         encodeLayout = QHBoxLayout()
 
@@ -86,6 +90,7 @@ class MainWindow(QMainWindow):
         self.settingsDynamicLayout = QVBoxLayout()
 
 
+
         # Adding layouts and Widgets to parents
 
         scrollChat.setWidget(scrollContainer)
@@ -101,12 +106,12 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.win)
 
-        self.startConnection()
-        self.parser = cli_parser(self.connection)
-        self.textSignal = MessageTransferer()
+        #self.startConnection()
+        #self.parser = cli_parser(self.connection)
+        #self.textSignal = MessageTransferer()
         # Set event for handling messages reception
-        self.textSignal.text.connect(self.handleServerReceptionToWindw)
-        self.connection.set_callback(self.textSignal.emitText)
+        #self.textSignal.text.connect(self.handleServerReceptionToWindw)
+        #self.connection.set_callback(self.textSignal.emitText)
 
         # Set cmb box to first item and doesnt generate any error 
         self.encoding.setCurrentIndex(1) 
@@ -162,6 +167,47 @@ class MainWindow(QMainWindow):
         except:
             self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
         self.shiftkeyText.setPlainText("")
+
+    
+    def btnSendDecodeTaskShift(self):
+        key_len = 0
+        try:
+            key_len = int(self.shiftdecodingMsgLen.toPlainText())
+            if (key_len > 0):
+                #Commande: 
+                # TODO ALED je connais pas la commande pitié
+                self.parser._cmd_send(["-s", "task", "shift", "decode", f"{key_len}"]) # Pass cli cmd args
+                self.btnSendDecodeTask.setEnabled(False)
+                self.shiftdecodingMsgLen.setEnabled(False)                
+                self.btnSendDecodedShift.setEnabled(True)
+                self.shiftDecodingKey.setEnabled(True)
+
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key length !")
+    
+    def btnSendDecodedShiftMsg(self):
+        key = 0
+        try:
+            key = int(self.shiftDecodingKey.toPlainText())
+            msg = self.shiftDecodedMsgText.toPlainText()
+            if (key > 0):
+                #Commande: 
+                encoded = self.connection.message_handler.decode_shift(msg, key)
+                self.connection.send_message(encoded, "s")
+                self.btnSendDecodeTask.setEnabled(True)
+                self.shiftdecodingMsgLen.setEnabled(True)                
+                self.btnSendDecodedShift.setEnabled(False)
+                self.shiftDecodingKey.setEnabled(False)
+
+            else:
+                raise ValueError
+        except ValueError:
+            self.addChatField("Error: Wrong Shift key !")
+        except:
+            self.addChatField("Error: Something went wrong ! (Maybe it's the server ?)")
+        self.shiftDecodingKey.setPlainText("")
         
 
     def btnSendTaskVegenere(self):
@@ -276,64 +322,147 @@ class MainWindow(QMainWindow):
     # Selecting encondig method event
     def cmbChangedSelected(self):
         text = self.encoding.currentText()
+        self.btnEncodeCheck = QPushButton("Encode")
+        self.btnEncodeCheck.clicked.connect(self.toggleEncode)
+        self.btnDecodeCheck = QPushButton("Decode")
+        self.btnDecodeCheck.clicked.connect(self.toggleEncode)
+
+        # Make buttons checkable (toggle behavior)
+        self.btnEncodeCheck.setCheckable(True)
+        self.btnDecodeCheck.setCheckable(True)
+
+        
+        self.btnEncodeCheck.setChecked(self.isEncoding)
+
+        # Create a button group
+        group = QButtonGroup()
+        group.setExclusive(True)
+        group.addButton(self.btnEncodeCheck)
+        group.addButton(self.btnDecodeCheck)
+
+        
+        encDecLayout = QHBoxLayout()
+
+        encDecLayout.addWidget(self.btnEncodeCheck)
+        encDecLayout.addWidget(self.btnDecodeCheck)
         
         self.clearLayout(self.settingsDynamicLayout) # Clear the settings layout
         match text:
             case "Shift": 
+                print(self.isEncoding)
+                if self.isEncoding:
+                    self.shiftLayout = QVBoxLayout()
 
-                # Create layout for rsa encoding
-                self.shiftLayout = QVBoxLayout()
-                keyLayout = QHBoxLayout()
-                msgLayout = QHBoxLayout()
-                shftlayout = QHBoxLayout()
 
-                # Field for the private key
-                keyLabel = QLabel("Msg length : ")
-                keyLabel.setMaximumWidth(60)
+                    keyLayout = QHBoxLayout()
+                    msgLayout = QHBoxLayout()
+                    shftlayout = QHBoxLayout()
+
+                    # Field for the private key
+                    keyLabel = QLabel("Msg length : ")
+                    keyLabel.setMaximumWidth(60)
+                    
+                    self.shiftkeyText = QTextEdit(placeholderText="Msg length")
+                    self.shiftkeyText.setMaximumHeight(30)
+
+                    # Field for the private key
+                    lblMsg = QLabel("Message (encoded) : ")
+                    lblMsg.setMaximumWidth(50)
+                    
+                    self.shiftedMsgText = QTextEdit(placeholderText="Shifted Message")
+                    self.shiftedMsgText.setMaximumHeight(30)
+                    self.shiftedMsgText.setEnabled(False)
+
+                    # Field for the private key
+                    lblshiftkey = QLabel("Key : ")
+                    lblshiftkey.setMaximumWidth(50)
+                    
+                    self.shiftedKey = QTextEdit(placeholderText="Key")
+                    self.shiftedKey.setMaximumHeight(30)
+                    self.shiftedKey.setEnabled(False)
+
+                    keyLayout.addWidget(keyLabel)
+                    keyLayout.addWidget(self.shiftkeyText)
+
+                    msgLayout.addWidget(lblMsg)                
+                    msgLayout.addWidget(self.shiftedMsgText)
+
+                    shftlayout.addWidget(lblshiftkey)                
+                    shftlayout.addWidget(self.shiftedKey)
+
+                    self.btnSendShifted = QPushButton("Encode and Send")
+                    self.btnSendShifted.clicked.connect(self.btnSendShiftedMsg)
+                    self.btnSendShifted.setEnabled(False)
                 
-                self.shiftkeyText = QTextEdit(placeholderText="Msg length")
-                self.shiftkeyText.setMaximumHeight(30)
 
-                # Field for the private key
-                lblMsg = QLabel("Message (encoded) : ")
-                lblMsg.setMaximumWidth(50)
+                    # Button to generate RSA keys
+                    self.btnSendShift = QPushButton("Send Task")
+                    self.btnSendShift.clicked.connect(self.btnSendTaskShift)
+
+                    self.shiftLayout.addLayout(encDecLayout)
+                    self.shiftLayout.addLayout(keyLayout)
+                    self.shiftLayout.addWidget(self.btnSendShift)
+                    self.shiftLayout.addLayout(msgLayout)
+                    self.shiftLayout.addLayout(shftlayout)
+                    self.shiftLayout.addWidget(self.btnSendShifted)
+                    self.settingsDynamicLayout.addLayout(self.shiftLayout)
+                else:
+                    self.shiftLayout = QVBoxLayout()
+
+
+                    keyLayout = QHBoxLayout()
+                    msgLayout = QHBoxLayout()
+                    shftlayout = QHBoxLayout()
+
+                    # Field for the private key
+                    keyLabel = QLabel("Msg length : ")
+                    keyLabel.setMaximumWidth(60)
+                    
+                    self.shiftdecodingMsgLen = QTextEdit(placeholderText="Msg length")
+                    self.shiftdecodingMsgLen.setMaximumHeight(30)
+
+                    # Field for the private key
+                    lblMsg = QLabel("Message (Decoded) : ")
+                    lblMsg.setMaximumWidth(50)
+                    
+                    self.shiftDecodedMsgText = QTextEdit(placeholderText="Shifted Message")
+                    self.shiftDecodedMsgText.setMaximumHeight(30)
+                    self.shiftDecodedMsgText.setEnabled(False)
+
+                    # Field for the private key
+                    lblshiftkey = QLabel("Key : ")
+                    lblshiftkey.setMaximumWidth(50)
+                    
+                    self.shiftDecodingKey = QTextEdit(placeholderText="Key")
+                    self.shiftDecodingKey.setMaximumHeight(30)
+                    self.shiftDecodingKey.setEnabled(False)
+
+                    keyLayout.addWidget(keyLabel)
+                    keyLayout.addWidget(self.shiftdecodingMsgLen)
+
+                    msgLayout.addWidget(lblMsg)                
+                    msgLayout.addWidget(self.shiftDecodedMsgText)
+
+                    shftlayout.addWidget(lblshiftkey)                
+                    shftlayout.addWidget(self.shiftDecodingKey)
+
+                    self.btnSendDecodedShift = QPushButton("Decode and Send")
+                    self.btnSendDecodedShift.clicked.connect(self.btnSendDecodedShiftMsg)
+                    self.btnSendDecodedShift.setEnabled(False)
                 
-                self.shiftedMsgText = QTextEdit(placeholderText="Shifted Message")
-                self.shiftedMsgText.setMaximumHeight(30)
-                self.shiftedMsgText.setEnabled(False)
 
-                # Field for the private key
-                lblshiftkey = QLabel("Key : ")
-                lblshiftkey.setMaximumWidth(50)
-                
-                self.shiftedKey = QTextEdit(placeholderText="Key")
-                self.shiftedKey.setMaximumHeight(30)
-                self.shiftedKey.setEnabled(False)
+                    # Button to generate RSA keys
+                    self.btnSendDecodeTask = QPushButton("Send Task")
+                    self.btnSendDecodeTask.clicked.connect(self.btnSendDecodeTaskShift)
 
-                keyLayout.addWidget(keyLabel)
-                keyLayout.addWidget(self.shiftkeyText)
+                    self.shiftLayout.addLayout(encDecLayout)
+                    self.shiftLayout.addLayout(keyLayout)
+                    self.shiftLayout.addWidget(self.btnSendDecodeTask)
+                    self.shiftLayout.addLayout(msgLayout)
+                    self.shiftLayout.addLayout(shftlayout)
+                    self.shiftLayout.addWidget(self.btnSendDecodedShift)
+                    self.settingsDynamicLayout.addLayout(self.shiftLayout)
 
-                msgLayout.addWidget(lblMsg)                
-                msgLayout.addWidget(self.shiftedMsgText)
-
-                shftlayout.addWidget(lblshiftkey)                
-                shftlayout.addWidget(self.shiftedKey)
-
-                self.btnSendShifted = QPushButton("Encode and Send")
-                self.btnSendShifted.clicked.connect(self.btnSendShiftedMsg)
-                self.btnSendShifted.setEnabled(False)
-               
-
-                # Button to generate RSA keys
-                self.btnSendShift = QPushButton("Send Task")
-                self.btnSendShift.clicked.connect(self.btnSendTaskShift)
-
-                self.shiftLayout.addLayout(keyLayout)
-                self.shiftLayout.addWidget(self.btnSendShift)
-                self.shiftLayout.addLayout(msgLayout)
-                self.shiftLayout.addLayout(shftlayout)
-                self.shiftLayout.addWidget(self.btnSendShifted)
-                self.settingsDynamicLayout.addLayout(self.shiftLayout)
             case "Vegenere": 
                 # Create layout for rsa encoding
                 self.vegenereLayout = QVBoxLayout()
@@ -474,6 +603,19 @@ class MainWindow(QMainWindow):
             self.clearLayout(self.settingsDynamicLayout)
         else:
             self.cmbChangedSelected()
+        
+    def toggleEncode(self):
+        if self.isEncoding and self.btnEncodeCheck.isChecked():
+            self.isEncoding = False
+            self.cmbChangedSelected()
+            self.btnEncodeCheck.setChecked(False)
+            self.btnDecodeCheck.setChecked(True)
+            #switch sur decode
+        elif not self.isEncoding and self.btnDecodeCheck.isChecked():           
+            self.isEncoding = True
+            self.cmbChangedSelected()
+            self.btnEncodeCheck.setChecked(True)
+            self.btnDecodeCheck.setChecked(False) 
         
         
     # CLears a layout of it's wigets AND layouts
