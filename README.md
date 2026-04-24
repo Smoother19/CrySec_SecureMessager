@@ -1,2 +1,2 @@
 # CrySec_SecureMessager
-Client side messaging app for CrySec course
+Pls help mon cerveau c'est un bloc de dirt
