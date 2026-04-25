@@ -139,14 +139,29 @@ class MessageHandler():
             
         return result
     
-    def rsa_decrypt(self, cipher_bytes, n, d):
-        '''Decode the message using RSA decryption with the given private key (n, d)'''
+    def rsa_decrypt(self, cipher_data, n, d):
+        '''Décode le message RSA depuis une liste de nombres ou des bytes'''
         result = ""
-        bytes_per_char = (n.bit_length() + 7) // 8
-
-        for i in range(0, len(cipher_bytes), bytes_per_char):
-            chunk = int.from_bytes(cipher_bytes[i : i + bytes_per_char], byteorder="big")
-            result += chr(pow(chunk, d, n))
+        
+        # CAS 1 : Chaîne de nombres décimaux (ex: "141 15 205...")
+        if isinstance(cipher_data, str):
+            # On sépare par les espaces et on ignore les morceaux vides
+            numbers = [n for n in cipher_data.split() if n.strip()]
+            for num_str in numbers:
+                try:
+                    c = int(num_str)
+                    # Calcul RSA : m = c^d mod n
+                    m = pow(c, d, n)
+                    result += chr(m)
+                except ValueError:
+                    continue
+                    
+        # CAS 2 : Bytes bruts (pour la compatibilité)
+        elif isinstance(cipher_data, bytes):
+            bytes_per_char = (n.bit_length() + 7) // 8
+            for i in range(0, len(cipher_data), bytes_per_char):
+                c = int.from_bytes(cipher_data[i : i + bytes_per_char], byteorder="big")
+                result += chr(pow(c, d, n))
 
         return result
     

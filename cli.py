@@ -285,25 +285,17 @@ class cli_parser:
                 print(f"Buffer 'encoded' décodé dans 'plain' avec Vigenère.")
 
             elif algo == 'rsa':
-                n, d = None, None
-                if len(args) >= 3:
-                    n, d = int(args[1]), int(args[2])
-                elif self.rsa_priv:
-                    n, d = self.rsa_priv
-                else:
-                    print("Erreur: Aucune clé RSA privée disponible. Précisez <n> <d> ou générez avec /rsa.")
+                if len(args) < 3:
+                    print("Erreur: RSA nécessite la clé privée. Usage: /decode rsa <n> <d>")
                     return
+                    
+                n, d = int(args[1]), int(args[2])
 
-                buffer_bytes = self.encoded_buffer
-                if isinstance(buffer_bytes, str):
-                    try:
-                        buffer_bytes = bytes.fromhex(buffer_bytes)
-                    except ValueError:
-                        print("Erreur: Pour décoder RSA depuis une chaîne, le buffer 'encoded' doit être en hexadécimal.")
-                        return
-
-                self.plain_buffer = self.message_handler.rsa_decrypt(buffer_bytes, n, d)
-                print(f"Buffer 'encoded' décodé avec RSA (clé privée: n={n}, d={d}).")
+                try:
+                    self.plain_buffer = self.message_handler.rsa_decrypt(self.encoded_buffer, n, d)
+                    print(f"Buffer 'encoded' décodé avec RSA (clé privée: n={n}, d={d}).")
+                except Exception as e:
+                    print(f"Erreur lors du décodage RSA : {e}")
 
             else:
                 print(f"Erreur: Algorithme de décodage '{algo}' non reconnu.")

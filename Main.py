@@ -4,7 +4,7 @@ from PySide6.QtWidgets import QApplication
 from MainWindow import MainWindow
 
 
-'''
+
 import threading
 from MessageTransferer import *
 from ConnectionHandler import *
@@ -37,3 +37,4 @@ app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
 sys.exit(app.exec())
+'''
