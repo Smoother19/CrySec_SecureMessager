@@ -3,6 +3,9 @@
 CrySec Secure Messenger - Client CLI
 
 Ce projet est un client de messagerie sécurisé en ligne de commande (CLI) développé en Python. Il permet de communiquer avec un serveur distant et d'exécuter diverses opérations cryptographiques (Chiffrement par décalage, Vigenère, RSA, Diffie-Hellman, Hachage SHA-256). Il intègre également un système d'automatisation pour intercepter et résoudre les tâches (challenges) envoyées par le serveur.
+
+Ce projet contient des dépendances tel que sympy et PySide6.QtWidgets
+
 # Concept Principal : Les Buffers
 
 Le client fonctionne autour d'un système de "Buffers" (mémoire temporaire) pour manipuler les données avant de les envoyer ou après les avoir reçues :
